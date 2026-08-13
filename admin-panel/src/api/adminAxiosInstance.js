@@ -1,0 +1,35 @@
+import axios from 'axios';
+
+// This instance ONLY talks to /admin-api. It stores its token under a
+// different localStorage key than the public frontend, so even if someone
+// opened both apps in the same browser, the tokens never mix.
+const adminApiBaseUrl = import.meta.env.VITE_ADMIN_API_BASE_URL || 'http://localhost:5000/admin-api';
+if (!import.meta.env.VITE_ADMIN_API_BASE_URL) {
+  console.warn('VITE_ADMIN_API_BASE_URL is not defined. Falling back to', adminApiBaseUrl);
+}
+
+const adminAxiosInstance = axios.create({
+  baseURL: adminApiBaseUrl,
+});
+
+adminAxiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem('admin_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+adminAxiosInstance.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(err);
+  }
+);
+
+export default adminAxiosInstance;
