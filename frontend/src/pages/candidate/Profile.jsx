@@ -2104,6 +2104,11 @@ export default function Profile() {
             : 'Resume';
     const resumeName = resumeNameBase.toLowerCase().endsWith('.pdf') ? resumeNameBase : `${resumeNameBase}.pdf`;
 
+    // Helper function to dispatch profile update event
+    const notifyProfileUpdate = () => {
+        window.dispatchEvent(new Event('profileUpdated'));
+    };
+
     useEffect(() => {
         fetchProfile();
     }, []);
@@ -2598,6 +2603,7 @@ export default function Profile() {
                 ...prev,
                 profile: { ...prev.profile, headline: headlineDraft },
             }));
+            notifyProfileUpdate();
             setToast('Headline saved!');
             closeModal();
         } catch (err) {
@@ -2680,6 +2686,7 @@ export default function Profile() {
                 ...prev,
                 profile: { ...prev.profile, about: aboutDraft },
             }));
+            notifyProfileUpdate();
             setToast('Bio saved!');
             closeModal();
         } catch (err) {
@@ -2698,6 +2705,7 @@ export default function Profile() {
                 ...prev,
                 profile: { ...prev.profile, location: locationDraft, phone: phoneDraft },
             }));
+            notifyProfileUpdate();
             setToast('Contact info saved!');
             closeModal();
         } catch (err) {
@@ -2716,6 +2724,7 @@ export default function Profile() {
                 ...prev,
                 profile: { ...prev.profile, skills: skillsDraft },
             }));
+            notifyProfileUpdate();
             setToast('Skills saved!');
             closeModal();
         } catch (err) {
@@ -2922,6 +2931,7 @@ export default function Profile() {
                 ...prev,
                 profile: { ...prev.profile, profilePictureUrl: data.profilePictureUrl },
             }));
+            notifyProfileUpdate();
             setToast('Photo uploaded!');
             closePhotoPreview();
             closeModal();
@@ -2946,6 +2956,7 @@ export default function Profile() {
                 ...prev,
                 profile: { ...prev.profile, profilePictureUrl: '' },
             }));
+            notifyProfileUpdate();
             setToast('Photo removed');
             setPhotoDeleteConfirm(false);
             closeModal();
@@ -2994,6 +3005,7 @@ export default function Profile() {
                     ? updatedProfile
                     : { ...prev.profile, resumeUrl: data.resumeUrl, resumeFilename: file.name },
             }));
+            notifyProfileUpdate();
             setToast('Resume uploaded!');
         } catch (err) {
             console.error('Failed to upload resume:', err);
@@ -3041,6 +3053,7 @@ export default function Profile() {
                 ...prev,
                 profile: { ...prev.profile, resumeUrl: '', resumeFilename: '' },
             }));
+            notifyProfileUpdate();
             setResumeDeleteConfirm(false);
             setToast('Resume deleted');
         } catch (err) {

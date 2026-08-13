@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 
-export default function RecruiterProfileMenu({ recruiterProfile }) {
+export default function RecruiterProfileMenu({ recruiterProfile: initialProfile }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -22,6 +22,10 @@ export default function RecruiterProfileMenu({ recruiterProfile }) {
   const [invites, setInvites] = useState([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
   const [inviteCount, setInviteCount] = useState(0);
+  // Initialize with initialProfile if provided, otherwise null
+  const [recruiterProfile, setRecruiterProfile] = useState(initialProfile || null);
+  // Only show loading if we don't have initial data
+  const [profileLoading, setProfileLoading] = useState(!initialProfile);
 
   useEffect(() => {
     if (!open) return;
@@ -35,6 +39,43 @@ export default function RecruiterProfileMenu({ recruiterProfile }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
+
+  // Sync initialProfile to state when it changes
+  useEffect(() => {
+    if (initialProfile) {
+      setRecruiterProfile(initialProfile);
+      setProfileLoading(false);
+    }
+  }, [initialProfile]);
+
+  // Fetch recruiter profile on component mount - always fetch fresh data
+  useEffect(() => {
+    let mounted = true;
+    
+    async function fetchProfile() {
+      try {
+        const { data } = await axiosInstance.get("/recruiter/me/profile");
+        if (mounted) {
+          setRecruiterProfile(data);
+          setProfileLoading(false);
+        }
+      } catch (err) {
+        console.error("Error fetching recruiter profile:", err);
+        if (mounted) {
+          setProfileLoading(false);
+          // If fetch failed and no initialProfile, keep current state
+          if (!initialProfile && !recruiterProfile) {
+            // Show Avatar as fallback
+          }
+        }
+      }
+    }
+    
+    fetchProfile();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Fetch invites on mount and when menu opens so count/badge is always accurate
   useEffect(() => {
@@ -72,7 +113,7 @@ export default function RecruiterProfileMenu({ recruiterProfile }) {
         aria-label="Open profile menu"
         className="relative inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-2 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50"
       >
-        {companyLogoUrl ? (
+        {!profileLoading && companyLogoUrl ? (
           <img
             src={companyLogoUrl}
             alt="Company logo"

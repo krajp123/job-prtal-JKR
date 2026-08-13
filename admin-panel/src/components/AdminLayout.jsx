@@ -41,7 +41,7 @@ const NAV_LINK_SECTIONS = [
   {
     title: 'Finance',
     items: [
-      { to: '/wallet-payments', label: 'Wallet & Payments', icon: Wallet },
+      { to: '/wallet-payments', label: 'Account', icon: Wallet },
       { to: '/reports', label: 'Reports', icon: BarChart3 },
       { to: '/settings', label: 'Settings', icon: Settings },
     ],
