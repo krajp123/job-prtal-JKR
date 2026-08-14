@@ -33,6 +33,8 @@ exports.register = async (req, res) => {
       companyName,
       companyWebsite,
       companyDetails,
+      languages: [],
+      expertiseTags: [],
       renewalDueDate,
     });
 

@@ -34,6 +34,8 @@ async function run() {
       phone: '+91 9999999999',
       companyName,
       companyWebsite: 'https://example.com',
+      languages: [],
+      expertiseTags: [],
       accountStatus: 'active',
       renewalDueDate,
     });

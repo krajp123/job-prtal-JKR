@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import adminAxiosInstance from '../api/adminAxiosInstance';
 
 const DUMMY_RECRUITERS = [
   {
     _id: '1',
-    name: 'Rajesh Kumar',
+    fullName: 'Rajesh Kumar',
     uniqueId: 'REC-2026-001',
     email: 'rajesh@techcorp.com',
     phone: '+91 9876543210',
@@ -15,7 +16,7 @@ const DUMMY_RECRUITERS = [
   },
   {
     _id: '2',
-    name: 'Priya Sharma',
+    fullName: 'Priya Sharma',
     uniqueId: 'REC-2026-002',
     email: 'priya@innovatehub.io',
     phone: '+91 9876543211',
@@ -26,7 +27,7 @@ const DUMMY_RECRUITERS = [
   },
   {
     _id: '3',
-    name: 'Amit Patel',
+    fullName: 'Amit Patel',
     uniqueId: 'REC-2026-003',
     email: 'amit@globaltech.co.in',
     phone: '+91 9876543212',
@@ -37,7 +38,19 @@ const DUMMY_RECRUITERS = [
   },
 ];
 
+const COLUMNS = [
+  { key: 'fullName', label: 'Recruiter Name' },
+  { key: 'uniqueId', label: 'Recruiter ID' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'companyName', label: 'Company Name' },
+  { key: 'companyWebsite', label: 'Website' },
+  { key: 'gstNumber', label: 'GST Number' },
+  { key: 'accountStatus', label: 'Status' },
+];
+
 export default function Recruiters() {
+  const navigate = useNavigate();
   const [recruiters, setRecruiters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -47,9 +60,9 @@ export default function Recruiters() {
       try {
         const response = await adminAxiosInstance.get('/users/recruiters');
         const realData = response.data || [];
-        
+
         console.log('Real recruiters from API:', realData);
-        
+
         // Use only real data, not dummy
         setRecruiters(realData);
         setError(null);
@@ -65,73 +78,107 @@ export default function Recruiters() {
     load();
   }, []);
 
+  const renderCell = (recruiter, key) => {
+    if (key === 'companyWebsite') {
+      return recruiter.companyWebsite ? (
+        <a
+          href={recruiter.companyWebsite}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#C75560] underline decoration-[#EBC2AE] underline-offset-2 hover:text-[#D9654A]"
+        >
+          {recruiter.companyWebsite}
+        </a>
+      ) : (
+        '—'
+      );
+    }
+
+    if (key === 'accountStatus') {
+      const status = recruiter.accountStatus || 'unknown';
+      const styles =
+        status === 'active'
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          : status === 'suspended'
+          ? 'bg-red-50 text-red-700 border-red-200'
+          : 'bg-[#FFF4EF] text-[#80576A] border-[#EBC2AE]';
+
+      return (
+        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${styles}`}>
+          {status}
+        </span>
+      );
+    }
+
+    return recruiter[key] || '—';
+  };
+
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Recruiters</h1>
-        <p className="mt-1 text-sm text-slate-500">Manage and view all recruiter accounts on the platform.</p>
+        <h1 className="text-xl font-semibold text-[#1D181A]">Recruiters</h1>
+        <p className="mt-1 text-sm text-[#80576A]">Manage and view all recruiter accounts on the platform.</p>
       </div>
 
-      <div className="overflow-hidden  border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1.2fr_0.8fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold text-slate-600">
-          <span>Recruiter Name</span>
-          <span>Email</span>
-          <span>Phone</span>
-          <span>Company Name</span>
-          <span>Website</span>
-          <span>Status</span>
-        </div>
-        <div className="divide-y divide-slate-200">
-          {loading ? (
-            <div className="p-6 text-sm text-slate-500">Loading recruiters…</div>
-          ) : error ? (
-            <div className="p-6 text-sm text-red-600">Error: {error}</div>
-          ) : recruiters.length === 0 ? (
-            <div className="p-6 text-sm text-slate-500">No recruiters found.</div>
-          ) : (
-            recruiters.map((recruiter) => (
-              <div key={recruiter._id} className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1.2fr_0.8fr] gap-4 px-5 py-3 text-sm text-slate-700 hover:bg-slate-50">
-                <div>
-                  <p className="font-medium text-slate-900">{recruiter.fullName || '—'}</p>
-                </div>
-                <div>
-                  <p className="truncate text-slate-700">{recruiter.email || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-slate-700">{recruiter.phone || '—'}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-slate-900">{recruiter.companyName || '—'}</p>
-                </div>
-                <div>
-                  <p className="truncate text-blue-600 hover:underline">
-                    {recruiter.companyWebsite ? (
-                      <a href={recruiter.companyWebsite} target="_blank" rel="noopener noreferrer">
-                        {recruiter.companyWebsite}
-                      </a>
-                    ) : (
-                      '—'
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold ${
-                    recruiter.accountStatus === 'active' 
-                      ? 'bg-emerald-50 text-emerald-700' 
-                      : recruiter.accountStatus === 'suspended'
-                      ? 'bg-red-50 text-red-700'
-                      : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {recruiter.accountStatus || 'unknown'}
-                  </span>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+      <div className="border border-[#1D181A] bg-[#FFFDFB]">
+        <table className="w-full table-fixed border-collapse text-xs">
+          <thead>
+            <tr>
+              {COLUMNS.map((col) => (
+                <th
+                  key={col.key}
+                  className="border border-[#1D181A] bg-[#FFF4EF] px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-[#1D181A] break-words"
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={COLUMNS.length} className="border border-[#1D181A] px-2 py-6 text-center text-[#80576A]">
+                  Loading recruiters…
+                </td>
+              </tr>
+            ) : error && recruiters.length === 0 ? (
+              <tr>
+                <td colSpan={COLUMNS.length} className="border border-[#1D181A] px-2 py-6 text-center text-red-600">
+                  Error: {error}
+                </td>
+              </tr>
+            ) : recruiters.length === 0 ? (
+              <tr>
+                <td colSpan={COLUMNS.length} className="border border-[#1D181A] px-2 py-6 text-center text-[#80576A]">
+                  No recruiters found.
+                </td>
+              </tr>
+            ) : (
+              recruiters.map((recruiter, idx) => (
+                <tr
+                  key={recruiter._id}
+                  onClick={() => navigate(`/recruiters/${recruiter._id}`)}
+                  className={`cursor-pointer transition hover:bg-[#FFF0E8] ${idx % 2 === 0 ? 'bg-[#FFFDFB]' : 'bg-[#FFF4EF]/40'}`}
+                >
+                  {COLUMNS.map((col) => (
+                    <td
+                      key={col.key}
+                      className={`border border-[#1D181A] px-2 py-2 text-[#1D181A] break-words ${
+                        col.key === 'fullName' || col.key === 'companyName' ? 'font-medium' : ''
+                      }`}
+                    >
+                      {renderCell(recruiter, col.key)}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
+
       {recruiters.length > 0 && (
-        <div className="mt-4 p-3 text-xs text-slate-600 bg-slate-100 rounded">
+        <div className="p-3 text-xs font-medium text-[#80576A] bg-[#FFF4EF] border border-[#EBC2AE] rounded">
           Showing {recruiters.length} recruiter(s)
         </div>
       )}

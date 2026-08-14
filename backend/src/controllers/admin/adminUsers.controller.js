@@ -35,6 +35,17 @@ exports.listRecruiters = async (req, res) => {
   }
 };
 
+// GET /admin-api/users/recruiters/:id
+exports.getRecruiter = async (req, res) => {
+  try {
+    const recruiter = await Recruiter.findById(req.params.id).select('-passwordHash');
+    if (!recruiter) return res.status(404).json({ error: 'Recruiter not found' });
+    res.json(recruiter);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // PATCH /admin-api/users/candidates/:id/status  body: { status: 'active'|'suspended' }
 exports.setCandidateStatus = async (req, res) => {
   try {

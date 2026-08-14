@@ -23,12 +23,9 @@ import adminAxiosInstance from '../api/adminAxiosInstance';
 
 const NAV_LINK_SECTIONS = [
   {
-    title: 'Core',
+    title: null, // Dashboard - no section title
     items: [
-      { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
-      { to: '/jobs', label: 'Jobs', icon: Briefcase },
-      { to: '/applications', label: 'Applications', icon: ClipboardList },
-      { to: '/reopen-requests', label: 'Reopen Requests', icon: RefreshCcw },
+      { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
     ],
   },
   {
@@ -36,6 +33,14 @@ const NAV_LINK_SECTIONS = [
     items: [
       { to: '/recruiters', label: 'Recruiters', icon: Building2 },
       { to: '/candidates', label: 'Candidates', icon: Users },
+    ],
+  },
+  {
+    title: 'Hiring',
+    items: [
+      { to: '/jobs', label: 'Jobs', icon: Briefcase },
+      { to: '/applications', label: 'Applicants', icon: ClipboardList },
+      { to: '/reopen-requests', label: 'Reopen Requests', icon: RefreshCcw },
     ],
   },
   {
@@ -268,8 +273,8 @@ export default function AdminLayout() {
 
           <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {NAV_LINK_SECTIONS.map((section) => (
-              <div key={section.title} className="space-y-1.5">
-                {!sidebarCollapsed && (
+              <div key={section.title || 'dashboard'} className="space-y-1.5">
+                {!sidebarCollapsed && section.title && (
                   <span className="block px-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#80576A]">
                     {section.title}
                   </span>
@@ -329,10 +334,12 @@ export default function AdminLayout() {
               </div>
               <nav className="flex flex-1 flex-col gap-4 overflow-y-auto">
                 {NAV_LINK_SECTIONS.map((section) => (
-                  <div key={section.title} className="space-y-1.5">
-                    <span className="block px-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#80576A]">
-                      {section.title}
-                    </span>
+                  <div key={section.title || 'dashboard'} className="space-y-1.5">
+                    {section.title && (
+                      <span className="block px-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#80576A]">
+                        {section.title}
+                      </span>
+                    )}
                     <div className="space-y-1">
                       {section.items.map((item) => (
                         <SidebarLink

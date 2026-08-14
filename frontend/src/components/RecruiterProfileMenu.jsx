@@ -142,6 +142,18 @@ export default function RecruiterProfileMenu({ recruiterProfile: initialProfile 
             <p className="text-xs text-slate-500">Recruiter account</p>
           </div>
           <div className="space-y-1 px-2 py-2">
+            <button
+              onClick={() => {
+                if (recruiterProfile?._id) {
+                  navigate(`/recruiter/${recruiterProfile._id}`);
+                  setOpen(false);
+                }
+              }}
+              className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+            >
+              <User size={16} />
+              Recruiter Profile
+            </button>
             <Link
               to="/recruiter/company-profile"
               onClick={() => setOpen(false)}

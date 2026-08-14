@@ -17,8 +17,29 @@ const recruiterSchema = new mongoose.Schema(
     ],
     companyName: { type: String, required: true },
     companyWebsite: { type: String, trim: true },
+    companyEmail: { type: String, trim: true, lowercase: true },
+    companyGst: { type: String, trim: true },
+    companyCin: { type: String, trim: true },
     companyLogoUrl: { type: String },
     companyDetails: { type: String },
+    profilePictureUrl: { type: String }, // Recruiter's own profile picture
+    bio: { type: String, trim: true },
+    location: { type: String, trim: true },
+    experienceYears: { type: Number, default: 0, min: 0 },
+    expertiseTags: [{ type: String, trim: true }],
+    languages: [{ type: String, trim: true }],
+    experienceTimeline: [
+      {
+        company: { type: String, trim: true },
+        role: { type: String, trim: true },
+        location: { type: String, trim: true },
+        startDate: { type: String, trim: true },
+        endDate: { type: String, trim: true },
+        current: { type: Boolean, default: false },
+        duration: { type: String, trim: true },
+        achievements: [{ type: String, trim: true }],
+      },
+    ],
 
     accountStatus: {
       type: String,

@@ -6,6 +6,7 @@ import AdminLayout from './components/AdminLayout';
 import AdminLogin from './pages/AdminLogin';
 import Dashboard from './pages/Dashboard';
 import Recruiters from './pages/Recruiters';
+import RecruiterProfile from './pages/RecruiterProfile';
 import Candidates from './pages/Candidates';
 import Jobs from './pages/Jobs';
 import Applications from './pages/Applications';
@@ -27,6 +28,7 @@ export default function App() {
           <Route element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="recruiters" element={<Recruiters />} />
+            <Route path="recruiters/:recruiterId" element={<RecruiterProfile />} />
             <Route path="candidates" element={<Candidates />} />
             <Route path="jobs" element={<Jobs />} />
             <Route path="applications" element={<Applications />} />

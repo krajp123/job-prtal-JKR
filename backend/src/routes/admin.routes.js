@@ -25,6 +25,7 @@ router.get('/dashboard/overview', adminDashboardController.getOverview);
 // ---- User management ----
 router.get('/users/candidates', adminUsersController.listCandidates);
 router.get('/users/recruiters', adminUsersController.listRecruiters);
+router.get('/users/recruiters/:id', adminUsersController.getRecruiter);
 router.patch('/users/candidates/:id/status', adminUsersController.setCandidateStatus);
 router.patch('/users/recruiters/:id/status', adminUsersController.setRecruiterStatus);
 

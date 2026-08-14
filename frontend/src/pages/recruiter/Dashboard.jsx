@@ -438,7 +438,9 @@ function SidebarProfileCard({ expanded, onToggle, recruiterProfile }) {
 
   const handleCardClick = (event) => {
     if (event.target.closest('[data-profile-link]')) {
-      navigate('/recruiter/company-profile');
+      if (recruiterProfile?._id) {
+        navigate(`/recruiter/${recruiterProfile._id}`);
+      }
       return;
     }
     onToggle();

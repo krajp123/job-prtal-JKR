@@ -64,12 +64,296 @@ function setDownloadHeaders(res, fileName, contentType = 'application/pdf') {
   );
 }
 
+function parseSalaryRange(rawSalary) {
+  if (!rawSalary) return null;
+
+  if (typeof rawSalary === 'object' && rawSalary !== null && !Array.isArray(rawSalary)) {
+    const min = Number(rawSalary.min ?? rawSalary.minimum ?? 0);
+    const max = Number(rawSalary.max ?? rawSalary.maximum ?? 0);
+    if (Number.isFinite(min) || Number.isFinite(max)) {
+      return {
+        min: Number.isFinite(min) ? min : 0,
+        max: Number.isFinite(max) ? max : min,
+        currency: rawSalary.currency || 'INR',
+      };
+    }
+  }
+
+  if (typeof rawSalary === 'string') {
+    const cleaned = rawSalary.replace(/[^0-9\- toLlkK,\.]/g, ' ').trim();
+    const matches = cleaned.match(/\d+(?:[.,]\d+)?/g) || [];
+    if (!matches.length) return null;
+
+    const numbers = matches.map((value) => Number(value.replace(/,/g, '')));
+    const minimum = numbers[0] || 0;
+    const maximum = numbers[1] || minimum;
+
+    return {
+      min: minimum * 100000,
+      max: maximum * 100000,
+      currency: 'INR',
+    };
+  }
+
+  return null;
+}
+
+function normalizeRecruiterJob(job, applicantsCount) {
+  const location = job.location || 'Remote';
+  const experience = job.experienceLevel || 'Not disclosed';
+  const workMode = job.workMode || (location.toLowerCase().includes('remote') ? 'Remote' : 'Hybrid');
+
+  return {
+    _id: job._id,
+    title: job.title,
+    department: job.department || 'Hiring',
+    location,
+    workMode,
+    experience,
+    salary: parseSalaryRange(job.salary),
+    postedDate: job.createdAt || job.postedDate,
+    applicants: applicantsCount || 0,
+    description: job.description || '',
+    descriptionSections: job.descriptionSections || null,
+    skillsRequired: Array.isArray(job.skillsRequired) ? job.skillsRequired.filter(Boolean) : [],
+    status: job.status || 'open',
+    createdAt: job.createdAt || job.postedDate,
+  };
+}
+
 // GET /api/recruiter/me
 exports.getMyProfile = async (req, res) => {
   try {
     const recruiter = await Recruiter.findById(req.user.id).select('-passwordHash');
+    
+    console.log('🔍 getMyProfile - languages from DB:', {
+      languages: recruiter?.languages,
+      isArray: Array.isArray(recruiter?.languages),
+      length: recruiter?.languages?.length,
+    });
+    
     res.json(recruiter);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// GET /api/recruiter/:recruiterId/public-profile
+exports.getPublicProfile = async (req, res) => {
+  try {
+    const recruiter = await Recruiter.findById(req.params.recruiterId).select('-passwordHash');
+
+    if (!recruiter) {
+      return res.status(404).json({ error: 'Recruiter not found' });
+    }
+
+    const [jobs, totalApplicationsReceived, totalHires, recentApplicationEvents, recentJobEvents, recentResumeDownloads] = await Promise.all([
+      Job.find({ postedBy: recruiter._id, status: { $in: ['open', 'active'] } })
+        .sort({ createdAt: -1 })
+        .limit(4)
+        .lean(),
+      Application.countDocuments({ recruiter: recruiter._id }),
+      Application.countDocuments({ recruiter: recruiter._id, status: 'hired' }),
+      Application.find({ recruiter: recruiter._id })
+        .sort({ updatedAt: -1 })
+        .limit(20)
+        .populate('job', 'title')
+        .populate('candidate', 'name')
+        .lean(),
+      Job.find({ postedBy: recruiter._id })
+        .sort({ updatedAt: -1 })
+        .limit(20)
+        .select('title status adminClosed updatedAt createdAt')
+        .lean(),
+      Payment.find({ userType: 'recruiter', userId: recruiter._id, purpose: 'resume_download', status: 'success' })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate('relatedResumeDownload.candidate', 'name')
+        .lean(),
+    ]);
+
+    const jobsWithCounts = await Promise.all(
+      jobs.map(async (job) => {
+        const applicants = await Application.countDocuments({ job: job._id });
+        return normalizeRecruiterJob(job, applicants);
+      })
+    );
+
+    const activityEntries = [];
+    let activityId = 0; // Counter for unique activity IDs
+    const recruiterName = recruiter.fullName || recruiter.companyName || 'Recruiter';
+
+    recentJobEvents.forEach((job) => {
+      const createdAt = job.createdAt ? new Date(job.createdAt) : null;
+      const updatedAt = job.updatedAt ? new Date(job.updatedAt) : null;
+      const hasBeenUpdated = createdAt && updatedAt && updatedAt.getTime() > createdAt.getTime();
+
+      if (job.status === 'closed' || job.adminClosed) {
+        activityEntries.push({
+          id: `activity-${++activityId}`,
+          type: 'job',
+          entityType: 'job',
+          entityId: job._id.toString(),
+          text: `${recruiterName} closed the hiring process for the position of ${job.title}.`,
+          date: job.updatedAt || job.createdAt,
+        });
+      } else if (job.createdAt && !hasBeenUpdated) {
+        activityEntries.push({
+          id: `activity-${++activityId}`,
+          type: 'job',
+          entityType: 'job',
+          entityId: job._id.toString(),
+          text: `${recruiterName} posted a new job opportunity for the position of ${job.title}.`,
+          date: job.createdAt,
+        });
+      } else if (hasBeenUpdated) {
+        activityEntries.push({
+          id: `activity-${++activityId}`,
+          type: 'job',
+          entityType: 'job',
+          entityId: job._id.toString(),
+          text: `${recruiterName} re-opened the hiring process for the position of ${job.title}.`,
+          date: job.updatedAt || job.createdAt,
+        });
+      }
+    });
+
+    recentApplicationEvents.forEach((application) => {
+      const candidateName = application.candidate?.name || 'Candidate';
+      const jobTitle = application.job?.title || 'a role';
+
+      // Use else-if to ensure only ONE activity per application
+      if (application.status === 'hired') {
+        activityEntries.push({
+          id: `activity-${++activityId}`,
+          type: 'hire',
+          entityType: 'application',
+          entityId: application._id.toString(),
+          text: `${recruiterName} extended an offer to ${candidateName} for the position of ${jobTitle}.`,
+          date: application.updatedAt || application.createdAt,
+        });
+      } else if (application.status === 'shortlisted') {
+        activityEntries.push({
+          id: `activity-${++activityId}`,
+          type: 'job',
+          entityType: 'application',
+          entityId: application._id.toString(),
+          text: `${recruiterName} just shortlisted candidate ${candidateName} for the position of ${jobTitle}.`,
+          date: application.updatedAt || application.createdAt,
+        });
+      } else if (application.status === 'interview_scheduled') {
+        activityEntries.push({
+          id: `activity-${++activityId}`,
+          type: 'job',
+          entityType: 'application',
+          entityId: application._id.toString(),
+          text: `${recruiterName} scheduled an interview with ${candidateName} for the position of ${jobTitle}.`,
+          date: application.updatedAt || application.createdAt,
+        });
+      } else if (application.status === 'rejected') {
+        activityEntries.push({
+          id: `activity-${++activityId}`,
+          type: 'job',
+          entityType: 'application',
+          entityId: application._id.toString(),
+          text: `${recruiterName} declined the application of ${candidateName} for the position of ${jobTitle}.`,
+          date: application.updatedAt || application.createdAt,
+        });
+      } else if (application.status === 'viewed') {
+        activityEntries.push({
+          id: `activity-${++activityId}`,
+          type: 'job',
+          entityType: 'application',
+          entityId: application._id.toString(),
+          text: `${recruiterName} reviewed the application profile of ${candidateName} for the position of ${jobTitle}.`,
+          date: application.updatedAt || application.createdAt,
+        });
+      }
+    });
+
+    recentResumeDownloads.forEach((payment) => {
+      const candidateName = payment.relatedResumeDownload?.candidate?.name || 'Candidate';
+      activityEntries.push({
+        id: `activity-${++activityId}`,
+        type: 'job',
+        entityType: 'resume',
+        entityId: payment._id.toString(),
+        text: `${recruiterName} downloaded and reviewed the resume of candidate ${candidateName}.`,
+        date: payment.createdAt,
+      });
+    });
+
+    const mergedActivity = [...activityEntries]
+      .filter((entry) => entry?.date)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // 🔧 SMART DEDUPLICATION: Keep only MOST RECENT activity per ENTITY
+    // Key: entityType + entityId (e.g., "job-123", "application-456")
+    // This ensures:
+    // - Only 1 activity per job (the most recent update)
+    // - Only 1 activity per application (the most recent status change)
+    // - But different jobs can each have their own activity
+    
+    const entityActivityMap = new Map();
+    
+    mergedActivity.forEach((entry) => {
+      // Create unique key: "entityType-entityId" 
+      // Examples: "job-507f1f77bcf86cd799439011", "application-507f1f77bcf86cd799439012"
+      const entityKey = entry.entityType && entry.entityId 
+        ? `${entry.entityType}-${entry.entityId}` 
+        : entry.text; // Fallback to text if no entity ID
+      
+      // Only keep if we haven't seen this entity before
+      // Since array is sorted DESC by date, first occurrence is MOST RECENT
+      if (!entityActivityMap.has(entityKey)) {
+        entityActivityMap.set(entityKey, entry);
+      }
+    });
+
+    // Convert map to array and take top 5 most recent
+    const activity = Array.from(entityActivityMap.values()).slice(0, 5);
+
+    const totalJobsPosted = await Job.countDocuments({ postedBy: recruiter._id });
+    const responseRate = totalApplicationsReceived ? Math.min(99, Math.max(20, Math.round((totalHires / totalApplicationsReceived) * 100))) : 0;
+
+    const publicProfile = {
+      _id: recruiter._id,
+      name: recruiter.fullName || recruiter.companyName || 'Recruiter',
+      title: recruiter.designation || 'Recruitment Lead',
+      email: recruiter.email || '',
+      phone: recruiter.phone || '',
+      companyName: recruiter.companyName || '',
+      companyWebsite: recruiter.companyWebsite || '',
+      companyEmail: recruiter.companyEmail || '',
+      companyGst: recruiter.companyGst || '',
+      companyCin: recruiter.companyCin || '',
+      companyDescription: recruiter.companyDetails || recruiter.bio || '',
+      companyLogoUrl: recruiter.companyLogoUrl || '',
+      profilePictureUrl: recruiter.profilePictureUrl || '',
+      location: recruiter.location || 'Remote / India',
+      linkedinUrl: recruiter.linkedinUrl || '',
+      bio: recruiter.bio || recruiter.companyDetails || '',
+      experienceYears: recruiter.experienceYears || 0,
+      expertiseTags: recruiter.expertiseTags || [],
+      experienceTimeline: recruiter.experienceTimeline || [],
+      totalJobsPosted,
+      totalApplicationsReceived,
+      totalHires,
+      responseRate,
+      avgResponseTime: '18h',
+      joinedDate: recruiter.createdAt || recruiter.registeredAt || new Date().toISOString(),
+      languages: recruiter.languages || [],
+      hiringLocations: recruiter.location ? [recruiter.location] : ['Remote'],
+      rating: 4.8,
+      reviews: 24,
+      verified: recruiter.accountStatus === 'active',
+      jobs: jobsWithCounts,
+      activity,
+    };
+
+    res.json(publicProfile);
+  } catch (err) {
+    console.error('❌ Error in getPublicProfile:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -126,9 +410,28 @@ exports.updateMyProfile = async (req, res) => {
       email,
       phone,
       companyName,
+      companyWebsite,
+      companyEmail,
+      companyGst,
+      companyCin,
       companyDetails,
       companyLogoUrl,
+      profilePictureUrl,
+      location,
+      bio,
+      experienceYears,
+      expertiseTags,
+      languages,
+      experienceTimeline,
     } = req.body;
+
+    console.log('🔍 Backend received in updateMyProfile:', {
+      languages,
+      isArray: Array.isArray(languages),
+      length: languages?.length,
+    });
+
+
 
     const currentRecruiter = await Recruiter.findById(req.user.id).select('email phone');
     if (!currentRecruiter) {
@@ -140,6 +443,42 @@ exports.updateMyProfile = async (req, res) => {
     }
     if (designation !== undefined && typeof designation !== 'string') {
       return res.status(400).json({ error: 'Invalid designation' });
+    }
+    if (companyWebsite !== undefined && typeof companyWebsite !== 'string') {
+      return res.status(400).json({ error: 'Invalid company website' });
+    }
+    if (companyEmail !== undefined && typeof companyEmail !== 'string') {
+      return res.status(400).json({ error: 'Invalid company email' });
+    }
+    if (companyGst !== undefined && typeof companyGst !== 'string') {
+      return res.status(400).json({ error: 'Invalid GST number' });
+    }
+    if (companyCin !== undefined && typeof companyCin !== 'string') {
+      return res.status(400).json({ error: 'Invalid CIN number' });
+    }
+    if (profilePictureUrl !== undefined && typeof profilePictureUrl !== 'string') {
+      return res.status(400).json({ error: 'Invalid profile picture URL' });
+    }
+    if (location !== undefined && typeof location !== 'string') {
+      return res.status(400).json({ error: 'Invalid location' });
+    }
+    if (bio !== undefined && typeof bio !== 'string') {
+      return res.status(400).json({ error: 'Invalid bio' });
+    }
+    if (experienceYears !== undefined) {
+      const years = Number(experienceYears);
+      if (!Number.isFinite(years) || years < 0) {
+        return res.status(400).json({ error: 'Invalid years of experience' });
+      }
+    }
+    if (expertiseTags !== undefined && !Array.isArray(expertiseTags)) {
+      return res.status(400).json({ error: 'Expertise tags must be an array' });
+    }
+    if (languages !== undefined && !Array.isArray(languages)) {
+      return res.status(400).json({ error: 'Languages must be an array' });
+    }
+    if (experienceTimeline !== undefined && !Array.isArray(experienceTimeline)) {
+      return res.status(400).json({ error: 'Experience timeline must be an array' });
     }
 
     if (email !== undefined) {
@@ -174,15 +513,56 @@ exports.updateMyProfile = async (req, res) => {
     if (email !== undefined) update.email = email.toLowerCase();
     if (phone !== undefined) update.phone = phone;
     if (companyName !== undefined) update.companyName = companyName;
+    if (companyWebsite !== undefined) update.companyWebsite = companyWebsite;
+    if (companyEmail !== undefined) update.companyEmail = companyEmail;
+    if (companyGst !== undefined) update.companyGst = companyGst;
+    if (companyCin !== undefined) update.companyCin = companyCin;
     if (companyDetails !== undefined) update.companyDetails = companyDetails;
     if (companyLogoUrl !== undefined) update.companyLogoUrl = companyLogoUrl;
+    if (profilePictureUrl !== undefined) update.profilePictureUrl = profilePictureUrl || '';
+    if (location !== undefined) update.location = location.trim();
+    if (bio !== undefined) update.bio = bio.trim();
+    if (experienceYears !== undefined) update.experienceYears = Number(experienceYears);
+    if (expertiseTags !== undefined) {
+      update.expertiseTags = expertiseTags
+        .map((tag) => String(tag).trim())
+        .filter(Boolean);
+    }
+    if (languages !== undefined) {
+      const processedLanguages = languages
+        .map((lang) => String(lang).trim())
+        .filter(Boolean);
+      update.languages = processedLanguages;
+      console.log('💾 Backend update object has languages:', {
+        input: languages,
+        processed: processedLanguages,
+        count: processedLanguages.length,
+      });
+    }
+    if (experienceTimeline !== undefined) {
+      update.experienceTimeline = experienceTimeline.map((exp) => ({
+        company: String(exp?.company || '').trim(),
+        role: String(exp?.role || '').trim(),
+        location: String(exp?.location || '').trim(),
+        startDate: String(exp?.startDate || '').trim(),
+        endDate: String(exp?.endDate || '').trim(),
+        current: Boolean(exp?.current),
+        duration: String(exp?.duration || '').trim(),
+        achievements: Array.isArray(exp?.achievements)
+          ? exp.achievements.map((item) => String(item).trim()).filter(Boolean)
+          : [],
+      })).filter((exp) => exp.company || exp.role || exp.duration || exp.achievements.length);
+    }
 
-    const recruiter = await Recruiter.findByIdAndUpdate(req.user.id, update, { new: true }).select(
-      '-passwordHash'
-    );
+    const recruiter = await Recruiter.findByIdAndUpdate(req.user.id, { $set: update }, { new: true }).select('-passwordHash');
+    if (!recruiter) {
+      return res.status(404).json({ error: 'Recruiter not found' });
+    }
 
+    console.log('✅ After update, languages:', recruiter.languages);
     res.json(recruiter);
   } catch (err) {
+    console.error('❌ Error in updateMyProfile:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -623,5 +1003,92 @@ exports.declineInvite = async (req, res) => {
   } catch (err) {
     console.error('Decline invite failed:', err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+// POST /api/recruiter/me/upload-profile-picture
+exports.uploadProfilePicture = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const recruiter = await Recruiter.findById(req.user.id);
+    if (!recruiter) {
+      return res.status(404).json({ error: 'Recruiter not found' });
+    }
+
+    // Delete old profile picture if it exists
+    if (recruiter.profilePictureUrl && recruiter.profilePictureUrl.includes('cloudinary')) {
+      try {
+        const publicId = recruiter.profilePictureUrl.split('/').pop().split('.')[0];
+        await require('../config/cloudinary').cloudinary.uploader.destroy(`recruiter-profile-pictures/${publicId}`);
+      } catch (err) {
+        console.warn('Could not delete old profile picture:', err.message);
+      }
+    }
+
+    // Upload new profile picture to Cloudinary
+    const uploadPromise = new Promise((resolve, reject) => {
+      const uploadStream = require('../config/cloudinary').cloudinary.uploader.upload_stream(
+        {
+          folder: 'recruiter-profile-pictures',
+          resource_type: 'auto',
+          quality: 'auto',
+          fetch_format: 'auto',
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(req.file.buffer);
+    });
+
+    const uploadResult = await uploadPromise;
+    recruiter.profilePictureUrl = uploadResult.secure_url;
+    await recruiter.save();
+
+    console.log('✅ Recruiter profile picture uploaded:', recruiter.profilePictureUrl);
+    res.json({
+      message: 'Profile picture uploaded successfully',
+      profilePictureUrl: recruiter.profilePictureUrl,
+    });
+  } catch (err) {
+    console.error('❌ Profile picture upload failed:', err);
+    res.status(500).json({ error: err.message || 'Failed to upload profile picture' });
+  }
+};
+
+// DELETE /api/recruiter/me/profile-picture
+exports.deleteProfilePicture = async (req, res) => {
+  try {
+    const recruiter = await Recruiter.findById(req.user.id);
+    if (!recruiter) {
+      return res.status(404).json({ error: 'Recruiter not found' });
+    }
+
+    if (!recruiter.profilePictureUrl) {
+      return res.status(400).json({ error: 'No profile picture to delete' });
+    }
+
+    // Delete from Cloudinary
+    if (recruiter.profilePictureUrl.includes('cloudinary')) {
+      try {
+        const publicId = recruiter.profilePictureUrl.split('/').pop().split('.')[0];
+        await require('../config/cloudinary').cloudinary.uploader.destroy(`recruiter-profile-pictures/${publicId}`);
+      } catch (err) {
+        console.warn('Could not delete profile picture from Cloudinary:', err.message);
+      }
+    }
+
+    recruiter.profilePictureUrl = null;
+    await recruiter.save();
+
+    console.log('✅ Recruiter profile picture deleted');
+    res.json({ message: 'Profile picture deleted successfully' });
+  } catch (err) {
+    console.error('❌ Profile picture deletion failed:', err);
+    res.status(500).json({ error: err.message || 'Failed to delete profile picture' });
   }
 };
