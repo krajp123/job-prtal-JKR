@@ -8,7 +8,10 @@ import Dashboard from './pages/Dashboard';
 import Recruiters from './pages/Recruiters';
 import RecruiterProfile from './pages/RecruiterProfile';
 import Candidates from './pages/Candidates';
+import CandidateProfile from './pages/CandidateProfile';
 import Jobs from './pages/Jobs';
+import JobDetails from './pages/JobDetails';
+import JobApplicants from './pages/JobApplicants';
 import Applications from './pages/Applications';
 import WalletPayments from './pages/WalletPayments';
 import Reports from './pages/Reports';
@@ -30,6 +33,9 @@ export default function App() {
             <Route path="recruiters" element={<Recruiters />} />
             <Route path="recruiters/:recruiterId" element={<RecruiterProfile />} />
             <Route path="candidates" element={<Candidates />} />
+            <Route path="candidates/:candidateId" element={<CandidateProfile />} />
+            <Route path="jobs/:jobId" element={<JobDetails />} />
+            <Route path="jobs/:jobId/applicants" element={<JobApplicants />} />
             <Route path="jobs" element={<Jobs />} />
             <Route path="applications" element={<Applications />} />
             <Route path="reopen-requests" element={<ReopenRequests />} />

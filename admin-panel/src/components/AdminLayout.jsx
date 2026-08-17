@@ -64,7 +64,7 @@ function SidebarLink({ item, collapsed, onNavigate, badgeCount = 0 }) {
       onClick={onNavigate}
       title={collapsed ? item.label : undefined}
       className={({ isActive }) =>
-        `group flex items-center ${collapsed ? 'justify-center' : 'gap-2.5'} rounded-lg px-2.5 py-2 text-[12px] font-semibold transition-colors ${
+        `group flex items-center ${collapsed ? 'justify-center' : 'gap-2.5'} rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
           isActive
             ? 'bg-[#FFF0E8] text-[#C75560] shadow-sm'
             : 'text-[#80576A] hover:bg-[#FFF0E8] hover:text-[#C75560]'
@@ -259,7 +259,7 @@ export default function AdminLayout() {
             {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
           </button>
 
-          <div className={`mb-5 flex shrink-0 items-center px-1 ${sidebarCollapsed ? 'justify-center' : 'gap-2.5'}`}>
+          <div className={`mb-3 flex shrink-0 items-center px-1 ${sidebarCollapsed ? 'justify-center' : 'gap-2.5'}`}>
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#C75560] text-[13px] font-bold text-white">
               CR
             </div>
@@ -271,15 +271,15 @@ export default function AdminLayout() {
             )}
           </div>
 
-          <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <nav className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {NAV_LINK_SECTIONS.map((section) => (
-              <div key={section.title || 'dashboard'} className="space-y-1.5">
+              <div key={section.title || 'dashboard'} className="space-y-1">
                 {!sidebarCollapsed && section.title && (
                   <span className="block px-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#80576A]">
                     {section.title}
                   </span>
                 )}
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {section.items.map((item) => (
                     <SidebarLink
                       key={item.to}
@@ -297,7 +297,7 @@ export default function AdminLayout() {
             type="button"
             onClick={handleLogout}
             title={sidebarCollapsed ? 'Logout' : undefined}
-            className={`mt-2 flex shrink-0 items-center ${sidebarCollapsed ? 'justify-center' : 'gap-2.5'} rounded-lg px-2.5 py-2 text-left text-[12px] font-semibold text-[#C75560] transition-colors hover:bg-[#FFF0E8]`}
+            className={`mt-1 flex shrink-0 items-center ${sidebarCollapsed ? 'justify-center' : 'gap-2.5'} rounded-lg px-2.5 py-1.5 text-left text-[12px] font-semibold text-[#C75560] transition-colors hover:bg-[#FFF0E8]`}
           >
             <ArrowRightFromLine size={16} className="shrink-0" />
             {!sidebarCollapsed && <span className="overflow-hidden whitespace-nowrap">Logout</span>}
@@ -305,7 +305,7 @@ export default function AdminLayout() {
 
 
           {!sidebarCollapsed && (
-            <div className="mt-4 shrink-0 rounded-lg border border-[#EBC2AE] bg-[#FFF9F5] p-3 text-[11px] leading-tight shadow-sm">
+            <div className="mt-3 shrink-0 rounded-lg border border-[#EBC2AE] bg-[#FFF9F5] p-3 text-[11px] leading-tight shadow-sm">
               <p className="text-[#80576A]">Logged in as</p>
               <p className="mt-0.5 break-words font-semibold text-[#1D181A]">{admin?.name || 'Admin User'}</p>
               <p className="text-[10px] text-[#80576A]">{admin?.role || 'admin'}</p>
@@ -332,15 +332,15 @@ export default function AdminLayout() {
                   <X size={19} />
                 </button>
               </div>
-              <nav className="flex flex-1 flex-col gap-4 overflow-y-auto">
+              <nav className="flex flex-1 flex-col gap-2.5 overflow-y-auto">
                 {NAV_LINK_SECTIONS.map((section) => (
-                  <div key={section.title || 'dashboard'} className="space-y-1.5">
+                  <div key={section.title || 'dashboard'} className="space-y-1">
                     {section.title && (
                       <span className="block px-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#80576A]">
                         {section.title}
                       </span>
                     )}
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                       {section.items.map((item) => (
                         <SidebarLink
                           key={item.to}

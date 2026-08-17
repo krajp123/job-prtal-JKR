@@ -8,6 +8,7 @@ const candidateSchema = new mongoose.Schema(
     phone: { type: String, required: true, unique: true },
     emailVerified: { type: Boolean, default: true },
     phoneVerified: { type: Boolean, default: false },
+    isVerified: { type: Boolean, default: false },
     passwordHash: { type: String, required: true },
     workStatus: { type: String, enum: ['fresher', 'experienced'], default: 'fresher' },
     experienceCertificateUrl: { type: String }, // Cloudflare R2 link — only set when workStatus is 'experienced'
@@ -172,11 +173,27 @@ const candidateSchema = new mongoose.Schema(
 
     accountStatus: {
       type: String,
-      enum: ['active', 'suspended'],
+      enum: ['active', 'suspended', 'banned'],
       default: 'active',
     },
+    adminNotes: [
+      {
+        message: { type: String, required: true },
+        author: { type: String, default: 'Admin' },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    passwordResetToken: { type: String },
+    passwordResetExpiry: { type: Date },
     registeredAt: { type: Date, default: Date.now },
     renewalDueDate: { type: Date, required: true },
+    loginHistory: [
+      {
+        ip: { type: String },
+        device: { type: String },
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

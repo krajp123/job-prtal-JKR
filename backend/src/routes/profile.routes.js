@@ -3,10 +3,10 @@ const router = express.Router();
 
 const candidateController = require('../controllers/candidate.controller');
 const upload = require('../middleware/uploadHandler');
-const { verifyToken } = require('../middleware/auth');
+const { verifyTokenAndStatus } = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 
-router.use(verifyToken, requireRole('candidate'));
+router.use(verifyTokenAndStatus, requireRole('candidate'));
 
 router.put('/', candidateController.updateProfile);
 router.put('/experience', candidateController.updateProfileExperience);

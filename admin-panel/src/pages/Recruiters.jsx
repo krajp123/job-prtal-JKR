@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import adminAxiosInstance from '../api/adminAxiosInstance';
 
 const DUMMY_RECRUITERS = [
@@ -38,6 +39,8 @@ const DUMMY_RECRUITERS = [
   },
 ];
 
+const RECRUITERS_PER_PAGE = 10;
+
 const COLUMNS = [
   { key: 'fullName', label: 'Recruiter Name' },
   { key: 'uniqueId', label: 'Recruiter ID' },
@@ -54,29 +57,50 @@ export default function Recruiters() {
   const [recruiters, setRecruiters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
-    async function load() {
+    const timer = setTimeout(async () => {
       try {
-        const response = await adminAxiosInstance.get('/users/recruiters');
-        const realData = response.data || [];
-
-        console.log('Real recruiters from API:', realData);
-
-        // Use only real data, not dummy
-        setRecruiters(realData);
+        setLoading(true);
         setError(null);
+
+        const response = await adminAxiosInstance.get('/users/recruiters', {
+          params: {
+            search: searchTerm.trim(),
+            status: statusFilter === 'all' ? undefined : statusFilter,
+            page: currentPage,
+            limit: RECRUITERS_PER_PAGE,
+          },
+        });
+
+        const payload = response.data || {};
+        const realData = Array.isArray(payload.recruiters) ? payload.recruiters : payload.recruiters || [];
+
+        setRecruiters(realData);
+        setTotalCount(payload.totalCount || realData.length);
+        setTotalPages(payload.totalPages || Math.max(1, Math.ceil(realData.length / RECRUITERS_PER_PAGE)));
       } catch (error) {
         console.error('Failed to load recruiters:', error);
         setError(error.message);
-        // Fallback to dummy data if API fails
         setRecruiters(DUMMY_RECRUITERS);
+        setTotalCount(DUMMY_RECRUITERS.length);
+        setTotalPages(Math.max(1, Math.ceil(DUMMY_RECRUITERS.length / RECRUITERS_PER_PAGE)));
       } finally {
         setLoading(false);
       }
-    }
-    load();
-  }, []);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, statusFilter, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   const renderCell = (recruiter, key) => {
     if (key === 'companyWebsite') {
@@ -120,6 +144,36 @@ export default function Recruiters() {
         <p className="mt-1 text-sm text-[#80576A]">Manage and view all recruiter accounts on the platform.</p>
       </div>
 
+      <div className="flex flex-col gap-3 border border-[#EBC2AE] bg-[#FFF4EF] p-3 md:flex-row md:items-center md:justify-between">
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#80576A]" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search by name, email, company, phone"
+            className="w-full border border-[#1D181A] bg-[#FFFDFB] py-2 pl-9 pr-3 text-xs text-[#1D181A] outline-none placeholder:text-[#80576A]"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 text-xs text-[#1D181A]">
+          <label htmlFor="statusFilter" className="font-medium">
+            Status
+          </label>
+          <select
+            id="statusFilter"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="border border-[#1D181A] bg-[#FFFDFB] px-2 py-2 text-xs text-[#1D181A] outline-none"
+          >
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+            <option value="banned">Banned</option>
+          </select>
+        </div>
+      </div>
+
       <div className="border border-[#1D181A] bg-[#FFFDFB]">
         <table className="w-full table-fixed border-collapse text-xs">
           <thead>
@@ -150,7 +204,7 @@ export default function Recruiters() {
             ) : recruiters.length === 0 ? (
               <tr>
                 <td colSpan={COLUMNS.length} className="border border-[#1D181A] px-2 py-6 text-center text-[#80576A]">
-                  No recruiters found.
+                  No recruiters match your current search.
                 </td>
               </tr>
             ) : (
@@ -177,9 +231,37 @@ export default function Recruiters() {
         </table>
       </div>
 
-      {recruiters.length > 0 && (
-        <div className="p-3 text-xs font-medium text-[#80576A] bg-[#FFF4EF] border border-[#EBC2AE] rounded">
-          Showing {recruiters.length} recruiter(s)
+      {!loading && recruiters.length > 0 && (
+        <div className="flex flex-col gap-3 border border-[#EBC2AE] bg-[#FFF4EF] p-3 text-xs font-medium text-[#80576A] md:flex-row md:items-center md:justify-between">
+          <div>
+            Showing {recruiters.length} of {totalCount} recruiter(s)
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1 border border-[#1D181A] bg-[#FFFDFB] px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Prev
+            </button>
+
+            <span className="min-w-[90px] text-center text-[#1D181A]">
+              Page {currentPage} / {totalPages}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={currentPage >= totalPages}
+              className="flex items-center gap-1 border border-[#1D181A] bg-[#FFFDFB] px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       )}
     </div>

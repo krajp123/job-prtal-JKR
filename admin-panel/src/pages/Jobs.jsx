@@ -335,6 +335,8 @@ export default function Jobs() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedJob, setSelectedJob] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const JOBS_PER_PAGE = 5;
 
   useEffect(() => {
     async function loadJobs() {
@@ -403,6 +405,20 @@ export default function Jobs() {
     });
   }, [jobs, statusFilter, query]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / JOBS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedJobs = filtered.slice((safeCurrentPage - 1) * JOBS_PER_PAGE, safeCurrentPage * JOBS_PER_PAGE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, statusFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const navigate = useNavigate();
 
   return (
@@ -467,7 +483,7 @@ export default function Jobs() {
           ) : filtered.length === 0 ? (
             <div className="p-6 text-xs text-slate-500">No job postings match this search or filter.</div>
           ) : (
-            filtered.map((job) => {
+            paginatedJobs.map((job) => {
               const recruiter = job.recruiter || job.postedBy;
               const recruiterName = recruiter?.fullName || recruiter?.name || 'Unknown recruiter';
               const companyName = recruiter?.companyName || recruiter?.fullName || recruiter?.name || 'Unknown company';
@@ -478,7 +494,7 @@ export default function Jobs() {
               return (
                 <div
                   key={job._id}
-                  onClick={() => setSelectedJob(job)}
+                  onClick={() => navigate(`/jobs/${job._id}`)}
                   className="grid cursor-pointer items-center gap-3 px-5 py-3.5 text-xs text-slate-700 sm:grid-cols-[1.6fr_1.2fr_1fr_0.8fr_0.7fr_0.9fr] hover:bg-slate-50"
                 >
                   <div className="space-y-0.5">
@@ -509,7 +525,7 @@ export default function Jobs() {
                   </div>
                   <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={() => setSelectedJob(job)}
+                      onClick={() => navigate(`/jobs/${job._id}`)}
                       className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-[#C75560]"
                       title="View details"
                     >
@@ -531,6 +547,32 @@ export default function Jobs() {
           )}
         </div>
       </div>
+
+      {!loading && filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={safeCurrentPage === 1}
+            className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 disabled:cursor-not-allowed disabled:opacity-40 hover:bg-slate-50"
+          >
+            Previous
+          </button>
+
+          <p className="text-xs text-slate-600">
+            Page <span className="font-semibold text-slate-800">{safeCurrentPage}</span> of <span className="font-semibold text-slate-800">{totalPages}</span>
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={safeCurrentPage === totalPages}
+            className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 disabled:cursor-not-allowed disabled:opacity-40 hover:bg-slate-50"
+          >
+            Next
+          </button>
+        </div>
+      )}
 
       <JobDrawer
         job={selectedJob}

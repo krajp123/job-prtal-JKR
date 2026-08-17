@@ -24,10 +24,37 @@ router.get('/dashboard/overview', adminDashboardController.getOverview);
 
 // ---- User management ----
 router.get('/users/candidates', adminUsersController.listCandidates);
+router.get('/users/candidates/:id', adminUsersController.getCandidate);
+router.get('/users/candidates/:id/applications', adminUsersController.getCandidateApplications);
+router.get('/users/candidates/:id/activity', adminUsersController.getCandidateActivity);
+router.get('/users/candidates/:id/notes', adminUsersController.getCandidateNotes);
+router.post('/users/candidates/:id/notes', adminUsersController.addCandidateNote);
+router.patch('/users/candidates/:id/verify', adminUsersController.setCandidateVerification);
+router.post('/users/candidates/:id/send-password-reset', adminUsersController.sendCandidatePasswordReset);
 router.get('/users/recruiters', adminUsersController.listRecruiters);
 router.get('/users/recruiters/:id', adminUsersController.getRecruiter);
 router.patch('/users/candidates/:id/status', adminUsersController.setCandidateStatus);
 router.patch('/users/recruiters/:id/status', adminUsersController.setRecruiterStatus);
+
+// ---- Recruiter account management ----
+router.patch('/users/recruiters/:id/verify', adminUsersController.verifyRecruiter);
+router.patch('/users/recruiters/:id/reject-verification', adminUsersController.rejectRecruiterVerification);
+router.patch('/users/recruiters/:id/suspend', adminUsersController.suspendRecruiter);
+router.patch('/users/recruiters/:id/activate', adminUsersController.activateRecruiter);
+router.patch('/users/recruiters/:id/ban', adminUsersController.banRecruiter);
+router.post('/users/recruiters/:id/reset-password', adminUsersController.resetRecruiterPassword);
+
+// ---- Recruiter document management ----
+router.patch('/users/recruiters/:id/documents/:docId', adminUsersController.updateDocumentStatus);
+
+// ---- Recruiter admin notes ----
+router.patch('/users/recruiters/:id/notes', adminUsersController.updateRecruiterNotes);
+
+// ---- Recruiter wallet management ----
+router.patch('/users/recruiters/:id/wallet/adjust', adminUsersController.adjustRecruiterWallet);
+
+// ---- Recruiter analytics ----
+router.get('/users/recruiters/:id/analytics', adminUsersController.getRecruiterAnalytics);
 
 // ---- Payments monitoring ----
 router.get('/payments', adminPaymentsController.listPayments);
@@ -40,10 +67,11 @@ router.patch('/badges/:offerLetterId/reject', adminBadgeController.reject);
 
 // ---- Jobs management ----
 router.get('/jobs', adminJobsController.listJobs);
+router.get('/jobs/reopen-requests', adminJobsController.listReopenRequests);
+router.get('/jobs/:id', adminJobsController.getJob);
 router.patch('/jobs/:id/status', adminJobsController.updateJobStatus);
 router.delete('/jobs/:id', adminJobsController.deleteJob);
 router.get('/applications', adminJobsController.listApplications);
-router.get('/jobs/reopen-requests', adminJobsController.listReopenRequests);
 router.patch('/jobs/reopen-requests/:id/approve', adminJobsController.approveReopenRequest);
 router.patch('/jobs/reopen-requests/:id/reject', adminJobsController.rejectReopenRequest);
 

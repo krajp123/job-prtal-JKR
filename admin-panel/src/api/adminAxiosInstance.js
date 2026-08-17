@@ -28,6 +28,19 @@ adminAxiosInstance.interceptors.response.use(
       localStorage.removeItem('admin_user');
       window.location.href = '/login';
     }
+
+    // Check if account was suspended or banned
+    if (err.response?.status === 403) {
+      const errorCode = err.response?.data?.code;
+      if (errorCode === 'ACCOUNT_SUSPENDED' || errorCode === 'ACCOUNT_BANNED') {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        const message = err.response?.data?.error || 'Your account has been restricted.';
+        alert(message);
+        window.location.href = '/login';
+      }
+    }
+
     return Promise.reject(err);
   }
 );

@@ -43,16 +43,41 @@ const recruiterSchema = new mongoose.Schema(
 
     accountStatus: {
       type: String,
-      enum: ['active', 'suspended'],
+      enum: ['active', 'suspended', 'banned'],
       default: 'active',
+    },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'verified', 'rejected'],
+      default: 'pending',
     },
     walletBalance: {
       type: Number,
       default: 0,
       min: 0,
     },
+    adminNotes: { type: String, trim: true, default: '' },
+    kycDocuments: [
+      {
+        id: { type: String, unique: true },
+        type: { type: String, trim: true },
+        url: { type: String },
+        status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+        submittedAt: { type: Date, default: Date.now },
+        reviewedAt: { type: Date },
+      },
+    ],
+    passwordResetToken: { type: String },
+    passwordResetExpiry: { type: Date },
     registeredAt: { type: Date, default: Date.now },
     renewalDueDate: { type: Date, required: true },
+    loginHistory: [
+      {
+        ip: { type: String },
+        device: { type: String },
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

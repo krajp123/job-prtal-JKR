@@ -50,6 +50,35 @@ exports.listJobs = async (req, res) => {
   }
 };
 
+// GET /admin-api/jobs/:id
+exports.getJob = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id)
+      .populate('postedBy', 'fullName companyName email phone companyLogoUrl companyWebsite industry accountStatus verificationStatus')
+      .lean();
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // Get applicant count
+    const applicantCount = await Application.countDocuments({ job: job._id });
+    
+    // Rename skillsRequired to skills for frontend compatibility
+    const jobData = {
+      ...job,
+      skills: job.skillsRequired || [],
+      recruiter: job.postedBy, // Also include as recruiter for frontend compatibility
+      applicantsCount: applicantCount
+    };
+    
+    res.json(jobData);
+  } catch (err) {
+    console.error('Error in getJob:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // PATCH /admin-api/jobs/:id/status
 exports.updateJobStatus = async (req, res) => {
   try {

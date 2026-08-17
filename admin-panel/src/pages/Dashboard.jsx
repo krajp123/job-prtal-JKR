@@ -146,6 +146,7 @@ export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedMetric, setSelectedMetric] = useState('signups');
 
   useEffect(() => {
     let cancelled = false;
@@ -269,14 +270,46 @@ export default function Dashboard() {
           ))}
         </section>
 
-        <section className="grid shrink-0 gap-3 lg:grid-cols-2">
-          <div className="rounded-lg border border-[#EBC2AE] bg-white p-2.5 shadow-sm">
-            <div className="mb-1.5">
-              <h2 className="text-xs font-semibold text-[#1D181A]">Signups trend</h2>
-              <p className="text-[10px] text-[#6B7280]">Candidates vs recruiters, last 6 months.</p>
+        <section className="rounded-lg border border-[#EBC2AE] bg-white p-2.5 shadow-sm">
+          <div className="mb-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setSelectedMetric('signups')}
+                  className={`rounded-full px-3 py-1.5 text-[10px] font-semibold transition ${
+                    selectedMetric === 'signups'
+                      ? 'bg-[#C75560] text-white'
+                      : 'bg-[#F5E9E2] text-[#6B7280] hover:bg-[#EBC2AE]'
+                  }`}
+                >
+                  Signups
+                </button>
+                <button
+                  onClick={() => setSelectedMetric('jobStatus')}
+                  className={`rounded-full px-3 py-1.5 text-[10px] font-semibold transition ${
+                    selectedMetric === 'jobStatus'
+                      ? 'bg-[#C75560] text-white'
+                      : 'bg-[#F5E9E2] text-[#6B7280] hover:bg-[#EBC2AE]'
+                  }`}
+                >
+                  Job Status
+                </button>
+              </div>
+              <div className="text-right">
+                <h2 className="text-xs font-semibold text-[#1D181A]">
+                  {selectedMetric === 'signups' ? 'Signups trend' : 'Job status overview'}
+                </h2>
+                <p className="text-[10px] text-[#6B7280]">
+                  {selectedMetric === 'signups'
+                    ? 'Candidates vs recruiters, last 6 months.'
+                    : 'Active, closed and draft listings.'}
+                </p>
+              </div>
             </div>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
+          </div>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              {selectedMetric === 'signups' ? (
                 <AreaChart data={signupsTrend} margin={{ left: -20, top: 5, right: 5 }}>
                   <defs>
                     <linearGradient id="candGrad" x1="0" y1="0" x2="0" y2="1">
@@ -295,17 +328,7 @@ export default function Dashboard() {
                   <Area type="monotone" dataKey="candidates" stroke="#4f46e5" fill="url(#candGrad)" strokeWidth={1.5} />
                   <Area type="monotone" dataKey="recruiters" stroke="#0ea5e9" fill="url(#recGrad)" strokeWidth={1.5} />
                 </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-[#EBC2AE] bg-white p-2.5 shadow-sm">
-            <div className="mb-1.5">
-              <h2 className="text-xs font-semibold text-[#1D181A]">Job status overview</h2>
-              <p className="text-[10px] text-[#6B7280]">Active, closed and draft listings.</p>
-            </div>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
+              ) : (
                 <BarChart data={jobStatusTrend} margin={{ left: -20, top: 5, right: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
@@ -315,8 +338,8 @@ export default function Dashboard() {
                   <Bar dataKey="closed" fill="#94a3b8" radius={[4, 4, 0, 0]} barSize={14} />
                   <Bar dataKey="draft" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={14} />
                 </BarChart>
-              </ResponsiveContainer>
-            </div>
+              )}
+            </ResponsiveContainer>
           </div>
         </section>
 

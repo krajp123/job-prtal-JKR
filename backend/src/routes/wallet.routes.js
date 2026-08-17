@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 
 const walletController = require('../controllers/wallet.controller');
-const { verifyToken } = require('../middleware/auth');
+const { verifyTokenAndStatus } = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 
 // All routes require authentication and recruiter role
-router.use(verifyToken, requireRole('recruiter'));
+router.use(verifyTokenAndStatus, requireRole('recruiter'));
 
 // GET /api/recruiter/wallet/summary
 router.get('/summary', walletController.getWalletSummary);

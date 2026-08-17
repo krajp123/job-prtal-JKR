@@ -25,6 +25,21 @@ axiosInstance.interceptors.response.use(
       window.dispatchEvent(new Event('auth:unauthorized'));
     }
 
+    // Check if account was suspended or banned by admin
+    if (error.response?.status === 403 && isAuthenticatedRequest) {
+      const errorCode = error.response?.data?.code;
+      if (errorCode === 'ACCOUNT_SUSPENDED' || errorCode === 'ACCOUNT_BANNED') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.dispatchEvent(new CustomEvent('auth:account-restricted', {
+          detail: {
+            code: errorCode,
+            message: error.response?.data?.error || 'Your account has been restricted.',
+          },
+        }));
+      }
+    }
+
     return Promise.reject(error);
   }
 );
