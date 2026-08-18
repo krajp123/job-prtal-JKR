@@ -554,6 +554,15 @@ function AddMoneyModal({ open, onClose, onSuccess }) {
 
 /* -------------------------------- Transaction details modal -------------------------------- */
 
+function getDisplayTransactionType(txn) {
+  if (!txn) return 'Wallet transaction';
+  const description = typeof txn.description === 'string' ? txn.description.trim() : '';
+  if (description && description.toLowerCase().startsWith('added by admin')) return 'Added by admin';
+  if (description && description.toLowerCase().startsWith('deducted by admin')) return 'Deducted by admin';
+  if (description && description !== 'Wallet Recharge') return description;
+  return TYPE_LABEL[txn.type] || 'Wallet transaction';
+}
+
 function TransactionDetailsModal({ txnId, onClose }) {
   const [txn, setTxn] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -608,7 +617,7 @@ function TransactionDetailsModal({ txnId, onClose }) {
           <div className="mt-4">
             <Row label="Transaction ID" value={txn.id} />
             <Row label="Date & Time" value={formatDateTime(txn.createdAt)} />
-            <Row label="Type" value={TYPE_LABEL[txn.type]} />
+            <Row label="Type" value={getDisplayTransactionType(txn)} />
 
             {isRecharge ? (
               <>

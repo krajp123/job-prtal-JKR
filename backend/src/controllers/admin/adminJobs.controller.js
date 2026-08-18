@@ -18,34 +18,65 @@ async function cleanupResolvedReopenRequests() {
 // GET /admin-api/jobs
 exports.listJobs = async (req, res) => {
   try {
-    const { status, recruiter, search } = req.query;
+    const { status, recruiter, search, page = 1, limit = 10 } = req.query;
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
     const query = {};
 
     if (status) query.status = status;
     if (recruiter) query.postedBy = recruiter;
-    if (search) {
-      const term = new RegExp(String(search).trim(), 'i');
-      query.$or = [{ title: term }, { location: term }, { description: term }];
-    }
 
-    const jobs = await Job.find(query)
+    // Get all jobs that match status/recruiter filters first
+    let jobs = await Job.find(query)
       .sort({ createdAt: -1 })
       .populate('postedBy', 'fullName companyName email companyLogoUrl accountStatus')
       .lean();
 
+    // Apply search filter - ONLY on title, recruiter name, and company name
+    if (search && String(search).trim().length > 0) {
+      const term = String(search).trim().toLowerCase();
+      jobs = jobs.filter((job) => {
+        const recruiterName = (job.postedBy?.fullName || '').toLowerCase();
+        const companyName = (job.postedBy?.companyName || '').toLowerCase();
+        const jobTitle = (job.title || '').toLowerCase();
+
+        return (
+          jobTitle.includes(term) ||
+          recruiterName.includes(term) ||
+          companyName.includes(term)
+        );
+      });
+    }
+
+    const totalCount = jobs.length;
+    const totalPages = Math.ceil(totalCount / limitNum);
+
+    // Apply pagination
+    const paginatedJobs = jobs.slice(skip, skip + limitNum);
+
+    // Get application counts
     const counts = await Application.aggregate([
-      { $match: { job: { $in: jobs.map((job) => job._id) } } },
+      { $match: { job: { $in: paginatedJobs.map((job) => job._id) } } },
       { $group: { _id: '$job', count: { $sum: 1 } } },
     ]);
 
     const countMap = new Map(counts.map((entry) => [String(entry._id), entry.count]));
-    const jobsWithCounts = jobs.map((job) => ({
+    const jobsWithCounts = paginatedJobs.map((job) => ({
       ...job,
+      recruiter: job.postedBy,
       applicantsCount: countMap.get(String(job._id)) ?? 0,
     }));
 
-    res.json(jobsWithCounts);
+    res.json({
+      jobs: jobsWithCounts,
+      totalCount,
+      totalPages,
+      currentPage: pageNum,
+    });
   } catch (err) {
+    console.error('Error in listJobs:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -123,18 +154,53 @@ exports.updateJobStatus = async (req, res) => {
 // GET /admin-api/applications
 exports.listApplications = async (req, res) => {
   try {
-    const { jobId } = req.query;
+    const { jobId, search, status, page = 1, limit = 10 } = req.query;
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
     const query = {};
     if (jobId) query.job = jobId;
+    if (status && status !== 'all') query.status = status;
 
-    const applications = await Application.find(query)
+    // Get all applications that match filters first
+    let applications = await Application.find(query)
       .sort({ createdAt: -1 })
       .populate('candidate', 'name email phone')
       .populate('job', 'title')
       .populate('recruiter', 'fullName companyName email')
       .lean();
 
-    res.json(applications);
+    // Apply search filter - search by candidate name, email, phone, or job title
+    if (search && String(search).trim().length > 0) {
+      const term = String(search).trim().toLowerCase();
+      applications = applications.filter((app) => {
+        const candidateName = (app.candidate?.name || '').toLowerCase();
+        const candidateEmail = (app.candidate?.email || '').toLowerCase();
+        const candidatePhone = (app.candidate?.phone || '').toString().toLowerCase();
+        const jobTitle = (app.job?.title || '').toLowerCase();
+
+        return (
+          candidateName.includes(term) ||
+          candidateEmail.includes(term) ||
+          candidatePhone.includes(term) ||
+          jobTitle.includes(term)
+        );
+      });
+    }
+
+    const totalCount = applications.length;
+    const totalPages = Math.ceil(totalCount / limitNum);
+
+    // Apply pagination
+    const paginatedApplications = applications.slice(skip, skip + limitNum);
+
+    res.json({
+      applications: paginatedApplications,
+      totalCount,
+      totalPages,
+      currentPage: pageNum,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

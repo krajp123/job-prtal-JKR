@@ -8,6 +8,7 @@ import UniversalFooter from './components/UniversalFooter';
 
 import Home from './pages/Home';
 import IdRecovery from './pages/IdRecovery';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import RecruiterProfile from './pages/RecruiterProfile';
 import CandidateProfile from './pages/candidate/Profile';
 import CandidateJobSearch from './pages/candidate/JobSearch';
@@ -120,6 +121,7 @@ function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/id-recovery" element={<IdRecovery />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/recruiter/:recruiterId" element={<RecruiterProfile />} />
         <Route
           path="/candidate/dashboard"

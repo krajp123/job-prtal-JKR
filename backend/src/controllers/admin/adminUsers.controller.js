@@ -6,6 +6,7 @@ const Wallet = require('../../models/Wallet');
 const Payment = require('../../models/Payment');
 const AdminAuditLog = require('../../models/AdminAuditLog');
 const { logAdminAction } = require('../../services/audit.service');
+const { sendPasswordResetLinkEmail, sendCandidateAccountStatusEmail } = require('../../services/email.service');
 
 function buildDateSeries(days) {
   const series = [];
@@ -23,6 +24,41 @@ function buildDateSeries(days) {
     });
   }
   return series;
+}
+
+function buildCandidateAnalyticsBuckets(rangeKey = '6m') {
+  const buckets = [];
+  const now = new Date();
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  if (rangeKey === '1w' || rangeKey === '1m') {
+    const days = rangeKey === '1w' ? 7 : 30;
+    for (let i = days - 1; i >= 0; i -= 1) {
+      const date = new Date(now);
+      date.setHours(0, 0, 0, 0);
+      date.setDate(now.getDate() - i);
+      buckets.push({
+        key: date.toISOString().slice(0, 10),
+        label: String(date.getDate()),
+        date,
+      });
+    }
+    return buckets;
+  }
+
+  const count = rangeKey === '6m' ? 6 : 12;
+  for (let i = count - 1; i >= 0; i -= 1) {
+    const date = new Date(now);
+    date.setHours(0, 0, 0, 0);
+    date.setMonth(now.getMonth() - i);
+    buckets.push({
+      key: `${date.getFullYear()}-${date.getMonth()}`,
+      label: monthNames[date.getMonth()],
+      date,
+    });
+  }
+
+  return buckets;
 }
 
 function normalizeRecruiterPayload(recruiter, extra = {}) {
@@ -147,6 +183,7 @@ exports.getCandidateApplications = async (req, res) => {
     const applications = await Application.find({ candidate: req.params.id })
       .populate('job', 'title status')
       .populate('recruiter', 'companyName')
+      .populate('candidate', 'profile')
       .sort({ appliedAt: -1 })
       .lean();
 
@@ -157,8 +194,8 @@ exports.getCandidateApplications = async (req, res) => {
       companyName: application.recruiter?.companyName || 'Unknown company',
       status: application.status || 'applied',
       appliedAt: application.appliedAt,
-      resumeUrl: application.resumeUrl || null,
-      resumeFilename: application.resumeFilename || null,
+      resumeUrl: application.candidate?.profile?.resumeUrl || null,
+      resumeFilename: application.candidate?.profile?.resumeFilename || null,
     }));
 
     res.json({ applications: payload });
@@ -313,9 +350,18 @@ exports.sendCandidatePasswordReset = async (req, res) => {
     if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
 
     const resetToken = require('crypto').randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
     candidate.passwordResetToken = resetToken;
-    candidate.passwordResetExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    candidate.passwordResetExpiry = resetTokenExpiry;
     await candidate.save();
+
+    const emailResult = await sendPasswordResetLinkEmail(candidate.email, resetToken, candidate.name);
+    if (!emailResult.sent) {
+      return res.status(500).json({
+        error: emailResult.error || 'Failed to send reset link email to candidate',
+      });
+    }
 
     await logAdminAction({
       adminId: req.admin.id,
@@ -327,9 +373,8 @@ exports.sendCandidatePasswordReset = async (req, res) => {
     });
 
     res.json({
-      message: 'Password reset link generated for candidate',
+      message: 'Password reset link sent to candidate email',
       email: candidate.email,
-      resetToken,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -441,22 +486,31 @@ exports.getRecruiter = async (req, res) => {
 // PATCH /admin-api/users/candidates/:id/status  body: { status: 'active'|'suspended' }
 exports.setCandidateStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, reason } = req.body;
 
-    const candidate = await Candidate.findByIdAndUpdate(
-      req.params.id,
-      { accountStatus: status },
-      { new: true }
-    ).select('-passwordHash');
+    if (!['active', 'suspended', 'banned'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
 
+    const candidate = await Candidate.findById(req.params.id).select('-passwordHash');
     if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+
+    const previousStatus = candidate.accountStatus;
+    candidate.accountStatus = status;
+    await candidate.save();
+
+    // Send email notification for all status changes
+    const emailResult = await sendCandidateAccountStatusEmail(candidate.email, candidate.name, status, reason || '');
+    if (!emailResult.sent) {
+      console.warn(`Account status email failed for candidate ${candidate.email}:`, emailResult.error || 'Unknown email error');
+    }
 
     await logAdminAction({
       adminId: req.admin.id,
       action: 'SET_CANDIDATE_STATUS',
       targetType: 'Candidate',
       targetId: candidate._id,
-      details: { newStatus: status },
+      details: { previousStatus, newStatus: status, reason: reason || '' },
       ip: req.ip,
     });
 
@@ -632,7 +686,7 @@ exports.resetRecruiterPassword = async (req, res) => {
     if (!recruiter) return res.status(404).json({ error: 'Recruiter not found' });
 
     const resetToken = require('crypto').randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
     await Recruiter.updateOne(
       { _id: req.params.id },
@@ -733,10 +787,15 @@ exports.adjustRecruiterWallet = async (req, res) => {
     }
 
     const nextBalance = Math.max(0, wallet.balance + delta);
+    const trimmedReason = typeof reason === 'string' ? reason.trim() : '';
+    const adminActionLabel = delta >= 0
+      ? (trimmedReason ? `Added by admin: ${trimmedReason}` : 'Added by admin')
+      : (trimmedReason ? `Deducted by admin: ${trimmedReason}` : 'Deducted by admin');
+
     wallet.balance = nextBalance;
     wallet.transactions.push({
       type: delta >= 0 ? 'recharge' : 'refund',
-      description: reason || 'Manual wallet adjustment',
+      description: adminActionLabel,
       reference: `ADMIN-${Date.now()}`,
       amount: delta,
       balanceAfter: nextBalance,
@@ -781,6 +840,149 @@ exports.getRecruiterAnalytics = async (req, res) => {
 
     res.json({ metric, days: daysInt, data });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getCandidateAnalytics = async (req, res) => {
+  try {
+    const candidate = await Candidate.findById(req.params.id).select('_id').lean();
+    if (!candidate) {
+      return res.status(404).json({ error: 'Candidate not found' });
+    }
+
+    const metric = ['applications', 'shortlisted', 'interviews', 'activity'].includes(req.query.metric)
+      ? req.query.metric
+      : 'applications';
+    const range = ['1w', '1m', '6m', '1y'].includes(req.query.range) ? req.query.range : '6m';
+
+    const buckets = buildCandidateAnalyticsBuckets(range);
+    const bucketMap = new Map(buckets.map((bucket) => [bucket.key, 0]));
+    const start = new Date(buckets[0].date);
+    start.setHours(0, 0, 0, 0);
+
+    const candidateData = await Candidate.findById(req.params.id).select('loginHistory').lean();
+    const loginHistory = candidateData?.loginHistory || [];
+
+    for (const entry of loginHistory) {
+      if (!entry?.timestamp) continue;
+      const eventDate = new Date(entry.timestamp);
+      if (eventDate < start) continue;
+      const key = range === '1w' || range === '1m'
+        ? eventDate.toISOString().slice(0, 10)
+        : `${eventDate.getFullYear()}-${eventDate.getMonth()}`;
+
+      if (bucketMap.has(key)) {
+        bucketMap.set(key, (bucketMap.get(key) || 0) + 1);
+      }
+    }
+
+    const applications = await Application.find({
+      candidate: req.params.id,
+      createdAt: { $gte: start },
+    }).select('createdAt status').lean();
+
+    for (const app of applications) {
+      const createdAt = new Date(app.createdAt);
+      if (createdAt < start) continue;
+      const key = range === '1w' || range === '1m'
+        ? createdAt.toISOString().slice(0, 10)
+        : `${createdAt.getFullYear()}-${createdAt.getMonth()}`;
+
+      if (!bucketMap.has(key)) continue;
+
+      const status = String(app.status || '').toLowerCase();
+      const isApplication = metric === 'applications';
+      const isShortlisted = metric === 'shortlisted' && status === 'shortlisted';
+      const isInterview = metric === 'interviews' && ['interview', 'interviewed'].includes(status);
+      const isActivity = metric === 'activity';
+
+      if (isApplication || isShortlisted || isInterview || isActivity) {
+        bucketMap.set(key, (bucketMap.get(key) || 0) + 1);
+      }
+    }
+
+    const data = buckets.map((bucket) => bucketMap.get(bucket.key) || 0);
+
+    res.json({
+      metric,
+      range,
+      labels: buckets.map((bucket) => bucket.label),
+      data,
+    });
+  } catch (err) {
+    console.error('Error generating candidate analytics:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// GET /admin-api/users/candidates/:id/resume/download - admin download candidate resume
+exports.downloadCandidateResume = async (req, res) => {
+  try {
+    const candidate = await Candidate.findById(req.params.id).select('profile.resumeUrl profile.resumeFilename');
+    if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+
+    const resumeUrl = candidate.profile?.resumeUrl;
+    if (!resumeUrl) return res.status(404).json({ error: 'No resume found' });
+
+    const path = require('path');
+    const http = require('http');
+    const https = require('https');
+
+    let fileName = candidate.profile?.resumeFilename || '';
+    if (!fileName) {
+      fileName = decodeURIComponent(resumeUrl.split('/').pop()?.split('?')[0] || 'resume.pdf');
+    }
+    if (!fileName.toLowerCase().endsWith('.pdf')) {
+      fileName = `${fileName}.pdf`;
+    }
+
+    // Handle local uploads
+    if (resumeUrl.includes('/uploads/')) {
+      const relativePath = resumeUrl.split('/uploads/')[1] || '';
+      const localPath = path.join(__dirname, '..', '..', 'uploads', relativePath);
+      
+      // Set headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      
+      return res.sendFile(localPath, (err) => {
+        if (err) {
+          console.error('Failed to download candidate resume:', err);
+          if (!res.headersSent) {
+            return res.status(404).json({ error: 'Resume not available' });
+          }
+        }
+      });
+    }
+
+    // Handle remote URLs (Cloudinary, R2, etc.)
+    const remoteUrl = new URL(resumeUrl);
+    const transport = remoteUrl.protocol === 'https:' ? https : http;
+
+    return transport.get(resumeUrl, (proxyRes) => {
+      if (proxyRes.statusCode !== 200) {
+        console.error('Resume fetch failed with status', proxyRes.statusCode, resumeUrl);
+        if (!res.headersSent) {
+          res.status(502).json({ error: 'Unable to retrieve resume file' });
+        }
+        return;
+      }
+
+      // Always force PDF content type for resumes
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      proxyRes.pipe(res);
+    }).on('error', (err) => {
+      console.error('Resume download failed:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Unable to download resume file' });
+      }
+    });
+  } catch (err) {
+    console.error('Resume download failed:', err);
     res.status(500).json({ error: err.message });
   }
 };

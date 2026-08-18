@@ -340,6 +340,8 @@ export default function JobDetails() {
   const [applicationsLoading, setApplicationsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: null, action: null });
 
   useEffect(() => {
     async function loadJobAndApplications() {
@@ -371,17 +373,44 @@ export default function JobDetails() {
     if (jobId) loadJobAndApplications();
   }, [jobId]);
 
-  const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this job? This cannot be undone.')) return;
+  const handleDeleteClick = () => {
+    setConfirmModal({ isOpen: true, type: 'delete', action: null });
+  };
 
-    setDeleting(true);
-    try {
-      await adminAxiosInstance.delete(`/jobs/${jobId}`);
-      navigate('/jobs');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete job');
-      setDeleting(false);
+  const handleStatusToggleClick = () => {
+    if (!job) return;
+    const nextStatus = job.status === 'closed' ? 'open' : 'closed';
+    setConfirmModal({ isOpen: true, type: 'status', action: nextStatus });
+  };
+
+  const confirmAction = async () => {
+    setConfirmModal({ isOpen: false, type: null, action: null });
+
+    if (confirmModal.type === 'delete') {
+      setDeleting(true);
+      try {
+        await adminAxiosInstance.delete(`/jobs/${jobId}`);
+        navigate('/jobs');
+      } catch (err) {
+        setError(err.response?.data?.error || 'Failed to delete job');
+        setDeleting(false);
+      }
+    } else if (confirmModal.type === 'status') {
+      setStatusUpdating(true);
+      setError(null);
+      try {
+        const { data } = await adminAxiosInstance.patch(`/jobs/${jobId}/status`, { status: confirmModal.action });
+        setJob((prev) => ({ ...(prev || {}), ...data, status: data.status || confirmModal.action, adminClosed: Boolean(data.adminClosed) }));
+      } catch (err) {
+        setError(err.response?.data?.error || 'Failed to update job status');
+      } finally {
+        setStatusUpdating(false);
+      }
     }
+  };
+
+  const cancelAction = () => {
+    setConfirmModal({ isOpen: false, type: null, action: null });
   };
 
   const recruiter = job?.recruiter || job?.postedBy;
@@ -506,13 +535,27 @@ export default function JobDetails() {
               </div>
             </div>
 
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="shrink-0 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 text-[11px] font-bold transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
-            >
-              <Trash2 size={13} /> {deleting ? 'Deleting…' : 'Delete'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleStatusToggleClick}
+                disabled={statusUpdating}
+                className={`shrink-0 rounded-lg border px-3 py-2 text-[11px] font-bold transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5 ${
+                  job?.status === 'closed'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    : 'border-[#C9AFA2] bg-[#FFF4EF] text-[#80576A] hover:bg-[#FDE9E1]'
+                }`}
+              >
+                {statusUpdating ? 'Updating…' : job?.status === 'closed' ? 'Reopen Job' : 'Close Job'}
+              </button>
+
+              <button
+                onClick={handleDeleteClick}
+                disabled={deleting}
+                className="shrink-0 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 text-[11px] font-bold transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                <Trash2 size={13} /> {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -645,6 +688,73 @@ export default function JobDetails() {
         </div>
 
       </div>
+
+      {/* ================= Confirmation Modal ================= */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="rounded-2xl border border-[#F0E1D6] bg-white shadow-2xl max-w-[420px] w-full mx-4 overflow-hidden">
+            <div className="bg-gradient-to-r from-[#C75560]/5 to-[#D9654A]/5 px-5 py-4 border-b border-[#F0E1D6]">
+              <h2 className="text-[14px] font-bold text-[#1D181A]">
+                {confirmModal.type === 'delete' ? 'Delete Job' : confirmModal.action === 'closed' ? 'Close Job' : 'Reopen Job'}
+              </h2>
+            </div>
+
+            <div className="px-5 py-5 space-y-3">
+              {confirmModal.type === 'delete' && (
+                <>
+                  <p className="text-[13px] leading-relaxed text-[#3F3438]">
+                    Are you sure you want to delete this job? <span className="font-semibold text-red-700">This cannot be undone.</span>
+                  </p>
+                  <p className="text-[12px] text-[#A08A93] italic">
+                    The job posting will be permanently removed from the system and all associated data will be deleted.
+                  </p>
+                </>
+              )}
+
+              {confirmModal.type === 'status' && confirmModal.action === 'closed' && (
+                <>
+                  <p className="text-[13px] leading-relaxed text-[#3F3438]">
+                    Close this job for recruiters?
+                  </p>
+                  <p className="text-[12px] text-[#80576A] bg-[#FFF4EF] border border-[#EBC2AE] rounded-lg p-3">
+                    <span className="font-semibold">Important:</span> Recruiters will no longer be able to reopen it directly. They must submit a reopen request, which you can then approve or reject.
+                  </p>
+                </>
+              )}
+
+              {confirmModal.type === 'status' && confirmModal.action === 'open' && (
+                <p className="text-[13px] leading-relaxed text-[#3F3438]">
+                  Reopen this job and make it active again for recruiters?
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2.5 px-5 py-4 border-t border-[#F0E1D6] bg-[#FFFDFB]">
+              <button
+                type="button"
+                onClick={cancelAction}
+                className="flex-1 rounded-lg border border-[#EBC2AE] bg-white text-[#80576A] px-3 py-2 text-[12px] font-bold transition hover:bg-[#FFF4EF]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmAction}
+                disabled={deleting || statusUpdating}
+                className={`flex-1 rounded-lg px-3 py-2 text-[12px] font-bold transition text-white disabled:opacity-60 disabled:cursor-not-allowed ${
+                  confirmModal.type === 'delete'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : confirmModal.action === 'closed'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                {deleting || statusUpdating ? 'Processing…' : confirmModal.type === 'delete' ? 'Delete Job' : confirmModal.action === 'closed' ? 'Close Job' : 'Reopen Job'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -90,7 +90,7 @@ kycDocuments: [  // KYC document tracking
   }
 ]
 passwordResetToken: String  // For password reset flow
-passwordResetExpiry: Date   // Token expiry (24 hours)
+passwordResetExpiry: Date   // Token expiry (15 minutes)
 walletBalance: Number       // Existing but verified
 ```
 

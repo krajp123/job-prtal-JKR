@@ -211,6 +211,13 @@ exports.changePassword = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ error: 'Current password is incorrect' });
     }
+
+    // Check if new password is the same as current password
+    const isSameAsCurrentPassword = await comparePassword(newPassword, candidate.passwordHash);
+    if (isSameAsCurrentPassword) {
+      return res.status(400).json({ error: 'New password cannot be the same as your current password. Please choose a different password.' });
+    }
+
     candidate.passwordHash = await hashPassword(newPassword);
     await candidate.save();
     res.json({ message: 'Password changed successfully' });

@@ -58,7 +58,7 @@ exports.login = async (req, res) => {
     }
 
     if (recruiter.accountStatus === 'suspended') {
-      return res.status(403).json({ error: 'Account suspended. Please renew your registration.' });
+      return res.status(403).json({ error: 'Account suspended! Please contact support.' });
     }
 
     if (recruiter.accountStatus === 'banned') {

@@ -109,7 +109,7 @@ export default function Recruiters() {
           href={recruiter.companyWebsite}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[#C75560] underline decoration-[#EBC2AE] underline-offset-2 hover:text-[#D9654A]"
+          className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[#C75560] underline decoration-[#EBC2AE] underline-offset-2 hover:text-[#D9654A]"
         >
           {recruiter.companyWebsite}
         </a>
@@ -128,17 +128,17 @@ export default function Recruiters() {
           : 'bg-[#FFF4EF] text-[#80576A] border-[#EBC2AE]';
 
       return (
-        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${styles}`}>
+        <span className={`inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${styles}`}>
           {status}
         </span>
       );
     }
 
-    return recruiter[key] || '—';
+    return <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">{recruiter[key] || '—'}</span>;
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full overflow-hidden">
       <div>
         <h1 className="text-xl font-semibold text-[#1D181A]">Recruiters</h1>
         <p className="mt-1 text-sm text-[#80576A]">Manage and view all recruiter accounts on the platform.</p>
@@ -156,15 +156,15 @@ export default function Recruiters() {
           />
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-[#1D181A]">
-          <label htmlFor="statusFilter" className="font-medium">
+        <div className="flex items-center gap-2 text-xs text-[#1D181A] md:justify-end">
+          <label htmlFor="statusFilter" className="font-medium whitespace-nowrap">
             Status
           </label>
           <select
             id="statusFilter"
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="border border-[#1D181A] bg-[#FFFDFB] px-2 py-2 text-xs text-[#1D181A] outline-none"
+            className="w-full border border-[#1D181A] bg-[#FFFDFB] px-2 py-2 text-xs text-[#1D181A] outline-none md:w-auto"
           >
             <option value="all">All</option>
             <option value="active">Active</option>
@@ -174,8 +174,8 @@ export default function Recruiters() {
         </div>
       </div>
 
-      <div className="border border-[#1D181A] bg-[#FFFDFB]">
-        <table className="w-full table-fixed border-collapse text-xs">
+      <div className="overflow-x-auto border border-[#1D181A] bg-[#FFFDFB]">
+        <table className="min-w-[760px] w-full table-fixed border-collapse text-xs sm:text-[11px]">
           <thead>
             <tr>
               {COLUMNS.map((col) => (
@@ -217,7 +217,7 @@ export default function Recruiters() {
                   {COLUMNS.map((col) => (
                     <td
                       key={col.key}
-                      className={`border border-[#1D181A] px-2 py-2 text-[#1D181A] break-words ${
+                      className={`border border-[#1D181A] overflow-hidden px-2 py-2 align-top text-[#1D181A] break-words ${
                         col.key === 'fullName' || col.key === 'companyName' ? 'font-medium' : ''
                       }`}
                     >

@@ -1373,17 +1373,20 @@ export default function RecruiterProfile() {
               <SectionCard eyebrow="Ledger" title="Recent Transactions" icon={FileText}>
                 {recruiter.transactions?.length ? (
                   <div className="divide-y divide-[#F3E9E3]">
-                    {recruiter.transactions.map((t) => (
-                      <div key={t.id} className="flex items-center justify-between text-xs py-3 first:pt-0 last:pb-0">
-                        <div>
-                          <p className="text-[#1D181A] font-semibold">{t.type}</p>
-                          <p className="rc-mono text-[11px] text-[#A08A93]">{t.timestamp}</p>
+                    {recruiter.transactions.map((t) => {
+                      const displayLabel = (t.description && t.description !== 'Wallet Recharge') ? t.description : (t.type || 'Wallet transaction');
+                      return (
+                        <div key={t.id} className="flex items-center justify-between text-xs py-3 first:pt-0 last:pb-0">
+                          <div>
+                            <p className="text-[#1D181A] font-semibold">{displayLabel}</p>
+                            <p className="rc-mono text-[11px] text-[#A08A93]">{t.timestamp}</p>
+                          </div>
+                          <p className={`rc-mono font-bold ${t.amount < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                            {t.amount < 0 ? '-' : '+'}₹{Math.abs(t.amount)}
+                          </p>
                         </div>
-                        <p className={`rc-mono font-bold ${t.amount < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                          {t.amount < 0 ? '-' : '+'}₹{Math.abs(t.amount)}
-                        </p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <EmptyState label="No transactions yet." />

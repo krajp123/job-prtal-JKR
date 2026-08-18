@@ -610,10 +610,6 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ error: 'Current and new password are required' });
     }
 
-    if (currentPassword === newPassword) {
-      return res.status(400).json({ error: 'New password must be different from the current password' });
-    }
-
     if (!isStrongEnoughPassword(newPassword)) {
       return res.status(400).json({
         error:
@@ -629,6 +625,12 @@ exports.changePassword = async (req, res) => {
     const isMatch = await comparePassword(currentPassword, recruiter.passwordHash);
     if (!isMatch) {
       return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    // Check if new password is the same as current password
+    const isSameAsCurrentPassword = await comparePassword(newPassword, recruiter.passwordHash);
+    if (isSameAsCurrentPassword) {
+      return res.status(400).json({ error: 'New password cannot be the same as your current password. Please choose a different password.' });
     }
 
     recruiter.passwordHash = await hashPassword(newPassword);

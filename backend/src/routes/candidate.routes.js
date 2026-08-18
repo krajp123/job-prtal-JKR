@@ -18,6 +18,7 @@ router.post('/verify/phone/confirm', candidateVerification.verifyPhoneOtp);
 // Public — forgot password (candidate remembers their Unique ID, not their password)
 router.post('/password/forgot/send', candidatePasswordReset.sendResetOtp);
 router.post('/password/forgot/reset', candidatePasswordReset.resetPassword);
+router.post('/password/reset', candidatePasswordReset.resetPasswordByToken);
 
 // Public — registration is payment-first: create-order (Rs. 9) THEN verify-payment
 // actually creates the account. No account exists until payment is verified.
