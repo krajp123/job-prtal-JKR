@@ -17,6 +17,7 @@ import {
   ChevronRight,
   RefreshCcw,
   ArrowRightFromLine,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import adminAxiosInstance from '../api/adminAxiosInstance';
@@ -49,6 +50,12 @@ const NAV_LINK_SECTIONS = [
       { to: '/wallet-payments', label: 'Account', icon: Wallet },
       { to: '/reports', label: 'Reports', icon: BarChart3 },
       { to: '/settings', label: 'Settings', icon: Settings },
+    ],
+  },
+  {
+    title: 'Security',
+    items: [
+      { to: '/admins', label: 'Admin Management', icon: ShieldCheck, superadminOnly: true },
     ],
   },
 ];
@@ -84,6 +91,21 @@ function SidebarLink({ item, collapsed, onNavigate, badgeCount = 0 }) {
       )}
     </NavLink>
   );
+}
+
+function formatRole(role) {
+  const value = role || 'admin';
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function getInitials(name) {
+  return (name || 'Admin User')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
 }
 
 export default function AdminLayout() {
@@ -231,9 +253,14 @@ export default function AdminLayout() {
                 </div>
               )}
             </div>
-            <button className="flex items-center gap-2 rounded-lg border border-[#EBC2AE] bg-[#FFF9F5] px-2.5 py-1.5 text-xs text-[#1D181A] transition hover:bg-[#FFF0E8]">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#F7C56B] text-[11px] font-semibold text-[#1D181A]">
-                AU
+            <button
+              type="button"
+              onClick={() => navigate('/profile')}
+              aria-label="Open admin profile"
+              className="flex items-center gap-2 rounded-lg border border-[#EBC2AE] bg-[#FFF9F5] px-2.5 py-1.5 text-xs text-[#1D181A] transition hover:bg-[#FFF0E8]"
+            >
+              <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-[#F7C56B] text-[11px] font-semibold text-[#1D181A]">
+                {admin?.profilePictureUrl ? <img src={admin.profilePictureUrl} alt="" className="h-full w-full object-cover" /> : getInitials(admin?.name)}
               </div>
               <span className="hidden sm:inline">{admin?.name ? admin.name.split(' ')[0] : 'Admin'}</span>
             </button>
@@ -242,7 +269,7 @@ export default function AdminLayout() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col p-4 md:p-5">
-        <div className="mx-auto flex w-full min-h-0 flex-1 max-w-[1480px] gap-4">
+        <div className="mx-auto flex w-full min-w-0 min-h-0 flex-1 max-w-[1480px] gap-4">
           {/* Desktop sidebar */}
           <aside
             className={`relative hidden shrink-0 flex-col rounded-3xl border border-[#EBC2AE] bg-[#FFFDFB] px-2.5 py-4 shadow-sm md:flex transition-all duration-300 ${
@@ -280,7 +307,7 @@ export default function AdminLayout() {
                   </span>
                 )}
                 <div className="space-y-0.5">
-                  {section.items.map((item) => (
+                  {section.items.filter((item) => !item.superadminOnly || admin?.role === 'superadmin').map((item) => (
                     <SidebarLink
                       key={item.to}
                       item={item}
@@ -304,13 +331,24 @@ export default function AdminLayout() {
           </button>
 
 
-          {!sidebarCollapsed && (
-            <div className="mt-3 shrink-0 rounded-lg border border-[#EBC2AE] bg-[#FFF9F5] p-3 text-[11px] leading-tight shadow-sm">
-              <p className="text-[#80576A]">Logged in as</p>
-              <p className="mt-0.5 break-words font-semibold text-[#1D181A]">{admin?.name || 'Admin User'}</p>
-              <p className="text-[10px] text-[#80576A]">{admin?.role || 'admin'}</p>
+          <button
+            type="button"
+            onClick={() => navigate('/profile')}
+            title={sidebarCollapsed ? 'Open admin profile' : undefined}
+            aria-label="Open admin profile"
+            className={`mt-3 flex w-full shrink-0 items-center rounded-lg border border-[#EBC2AE] bg-[#FFF9F5] p-2 text-left transition hover:bg-[#FFF0E8] ${sidebarCollapsed ? 'justify-center' : 'gap-2.5'}`}
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F7C56B] text-[11px] font-semibold text-[#1D181A]">
+              {admin?.profilePictureUrl ? <img src={admin.profilePictureUrl} alt="" className="h-full w-full object-cover" /> : getInitials(admin?.name)}
             </div>
-          )}
+            {!sidebarCollapsed && (
+              <div className="min-w-0 text-[11px] leading-tight">
+                <p className="text-[#80576A]">Logged in as</p>
+                <p className="mt-0.5 truncate font-semibold text-[#1D181A]">{admin?.name || 'Admin User'}</p>
+                <p className="text-[10px] text-[#80576A]">{formatRole(admin?.role)}</p>
+              </div>
+            )}
+          </button>
         </aside>
 
         {/* Mobile sidebar drawer */}
@@ -341,7 +379,7 @@ export default function AdminLayout() {
                       </span>
                     )}
                     <div className="space-y-0.5">
-                      {section.items.map((item) => (
+                      {section.items.filter((item) => !item.superadminOnly || admin?.role === 'superadmin').map((item) => (
                         <SidebarLink
                           key={item.to}
                           item={item}
@@ -359,6 +397,25 @@ export default function AdminLayout() {
                 type="button"
                 onClick={() => {
                   setSidebarOpen(false);
+                  navigate('/profile');
+                }}
+                aria-label="Open admin profile"
+                className="mt-4 flex w-full items-center gap-2.5 rounded-lg border border-[#EBC2AE] bg-[#FFF9F5] p-2 text-left transition hover:bg-[#FFF0E8]"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F7C56B] text-[11px] font-semibold text-[#1D181A]">
+                  {admin?.profilePictureUrl ? <img src={admin.profilePictureUrl} alt="" className="h-full w-full object-cover" /> : getInitials(admin?.name)}
+                </div>
+                <div className="min-w-0 text-[11px] leading-tight">
+                  <p className="text-[#80576A]">Logged in as</p>
+                  <p className="mt-0.5 truncate font-semibold text-[#1D181A]">{admin?.name || 'Admin User'}</p>
+                  <p className="text-[10px] text-[#80576A]">{formatRole(admin?.role)}</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSidebarOpen(false);
                   handleLogout();
                 }}
                 className="mt-4 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12px] font-semibold text-[#C75560] transition-colors hover:bg-[#FFF0E8]"
@@ -370,7 +427,7 @@ export default function AdminLayout() {
           </div>
         )}
 
-          <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <main className="w-0 min-w-0 max-w-full min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             <Outlet />
           </main>
         </div>

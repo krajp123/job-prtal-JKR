@@ -21,7 +21,7 @@ export default function ManageUsers() {
   }
 
   return (
-    <div style={{ maxWidth: 800, margin: '40px auto', fontFamily: 'sans-serif' }}>
+    <div className="w-full space-y-4">
       <h2>Manage Users</h2>
 
       <div style={{ marginBottom: 16 }}>
@@ -31,9 +31,10 @@ export default function ManageUsers() {
         </button>
       </div>
 
-      <table width="100%" cellPadding="8" style={{ borderCollapse: 'collapse' }}>
+      <div className="overflow-x-auto border border-[#1D181A] bg-[#FFFDFB]">
+      <table className="w-full min-w-[560px] border-collapse text-xs text-left">
         <thead>
-          <tr style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>
+          <tr className="border border-[#1D181A] bg-[#FFF4EF]">
             <th>Name</th>
             <th>Status</th>
             <th>Action</th>
@@ -41,7 +42,7 @@ export default function ManageUsers() {
         </thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u._id} style={{ borderBottom: '1px solid #eee' }}>
+            <tr key={u._id} className="border border-[#1D181A] hover:bg-[#FFF0E8]">
               <td>{u.name || u.companyName}</td>
               <td>{u.accountStatus}</td>
               <td>
@@ -53,6 +54,7 @@ export default function ManageUsers() {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

@@ -16,6 +16,7 @@ export default function AdminLoginThreeD() {
   const [error, setError] = useState('');
   const [forgotNote, setForgotNote] = useState(false);
   const [status, setStatus] = useState('idle'); // idle | submitting | success | error
+  const [formVersion, setFormVersion] = useState(0);
   const navigate = useNavigate();
   const { login } = useAdminAuth();
 
@@ -36,12 +37,20 @@ export default function AdminLoginThreeD() {
     } catch (err) {
       setStatus('error');
       const errorMessage =
-        err.response?.data?.error ||
+        err.response?.status === 401
+          ? err.response?.data?.error || 'Wrong ID/Password'
+          : err.response?.status === 423
+          ? 'This admin account is temporarily locked. Try again later.'
+          : err.response?.status === 429
+          ? 'Too many login attempts. Try again later.'
+          : err.response?.data?.error ||
         err.response?.statusText ||
         err.message ||
         'Login failed. Check your credentials and try again.';
       setError(errorMessage);
       console.error('Admin login failed:', err);
+      setPassword('');
+      setFormVersion((version) => version + 1);
       setTimeout(() => setStatus('idle'), ERROR_ANIM_MS);
     }
   }
@@ -94,7 +103,7 @@ export default function AdminLoginThreeD() {
               To <span className="text-[#C75560]"> Admin Login</span>
             </motion.h1>
 
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <form key={formVersion} onSubmit={(event) => event.preventDefault()} className="space-y-4" noValidate autoComplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore="true">
               <motion.div variants={fadeUp}>
                 <label htmlFor="admin-email" className="block mb-1.5 text-[13px] font-semibold text-[#374151]">
                   Email
@@ -103,8 +112,10 @@ export default function AdminLoginThreeD() {
                   <Mail className="w-4 h-4 text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2" strokeWidth={2} />
                   <input
                     id="admin-email"
+                    name="admin-login-identifier"
                     type="email"
-                    autoComplete="username"
+                    autoComplete="new-username"
+                    data-lpignore="true"
                     placeholder="Enter your Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -123,8 +134,10 @@ export default function AdminLoginThreeD() {
                   <Lock className="w-4 h-4 text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2" strokeWidth={2} />
                   <input
                     id="admin-password"
+                    name="admin-login-secret"
                     type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
+                    autoComplete="new-password"
+                    data-lpignore="true"
                     placeholder="Enter your Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -175,40 +188,24 @@ export default function AdminLoginThreeD() {
                 )}
               </AnimatePresence>
 
-              <AnimatePresence>
-                {error && (
-                  <motion.p
-                    key={error}
-                    initial={{ opacity: 0, x: -6 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0 }}
-                    role="alert"
-                    aria-live="polite"
-                    className="text-[13.5px] font-medium text-[#B91C1C]"
-                  >
-                    {error}
-                  </motion.p>
-                )}
-              </AnimatePresence>
+              {error && (
+                <p role="alert" aria-live="assertive" className="text-left text-[13px] font-medium text-red-600">
+                  {error}
+                </p>
+              )}
 
-              <motion.button
-                variants={fadeUp}
-                type="submit"
+              <button
+                type="button"
+                onClick={handleSubmit}
                 disabled={isBusy}
-                whileHover={!isBusy ? { scale: 1.015 } : {}}
-                whileTap={!isBusy ? { scale: 0.985 } : {}}
-                animate={
-                  status === 'error'
-                    ? { x: [0, -8, 8, -6, 6, 0] }
-                    : status === 'success'
-                    ? { backgroundColor: '#5B3A52', borderColor: '#5B3A52', color: '#ffffff' }
-                    : {}
-                }
-                transition={status === 'error' ? { duration: 0.45 } : { duration: 0.3 }}
-                className="w-full py-3 rounded-xl border-2 border-[#C75560] text-[#C75560] text-[15px] font-bold transition-colors hover:bg-[#C75560] hover:text-white disabled:opacity-60"
+                className={`w-full rounded-xl border-2 py-3 text-[15px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                  status === 'success'
+                    ? 'border-[#5B3A52] bg-[#5B3A52] text-white'
+                    : 'border-[#C75560] text-[#C75560] hover:bg-[#C75560] hover:text-white'
+                }`}
               >
                 {status === 'submitting' ? 'Checking…' : status === 'success' ? 'Welcome back' : 'Login'}
-              </motion.button>
+              </button>
             </form>
 
             <motion.p variants={fadeUp} className="mt-7 text-[12.5px] text-[#9CA3AF] leading-relaxed">

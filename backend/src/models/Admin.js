@@ -7,6 +7,7 @@ const adminSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    profilePictureUrl: { type: String },
     passwordHash: { type: String, required: true },
 
     role: {
@@ -21,8 +22,13 @@ const adminSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     lastLoginAt: { type: Date },
     lastLoginIp: { type: String },
+    failedLoginAttempts: { type: Number, default: 0 },
+    lockUntil: { type: Date },
   },
   { timestamps: true }
 );
+
+adminSchema.index({ role: 1, isActive: 1 });
+adminSchema.index({ lastLoginAt: -1 });
 
 module.exports = mongoose.model('Admin', adminSchema);

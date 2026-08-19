@@ -109,7 +109,7 @@ export default function Recruiters() {
           href={recruiter.companyWebsite}
           target="_blank"
           rel="noopener noreferrer"
-          className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[#C75560] underline decoration-[#EBC2AE] underline-offset-2 hover:text-[#D9654A]"
+          className="block max-w-full break-words text-[#C75560] underline decoration-[#EBC2AE] underline-offset-2 hover:text-[#D9654A]"
         >
           {recruiter.companyWebsite}
         </a>
@@ -134,11 +134,11 @@ export default function Recruiters() {
       );
     }
 
-    return <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">{recruiter[key] || '—'}</span>;
+    return <span className="block max-w-full break-words whitespace-normal">{recruiter[key] || '—'}</span>;
   };
 
   return (
-    <div className="space-y-4 w-full overflow-hidden">
+    <div className="min-w-0 w-full space-y-4">
       <div>
         <h1 className="text-xl font-semibold text-[#1D181A]">Recruiters</h1>
         <p className="mt-1 text-sm text-[#80576A]">Manage and view all recruiter accounts on the platform.</p>
@@ -174,7 +174,7 @@ export default function Recruiters() {
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-[#1D181A] bg-[#FFFDFB]">
+      <div className="w-full max-w-full overflow-x-auto border border-[#1D181A] bg-[#FFFDFB]">
         <table className="min-w-[760px] w-full table-fixed border-collapse text-xs sm:text-[11px]">
           <thead>
             <tr>

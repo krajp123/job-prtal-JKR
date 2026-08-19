@@ -8,16 +8,29 @@ const adminPaymentsController = require('../controllers/admin/adminPayments.cont
 const adminBadgeController = require('../controllers/admin/adminBadge.controller');
 const adminDisputeController = require('../controllers/admin/adminDispute.controller');
 const adminJobsController = require('../controllers/admin/adminJobs.controller');
+const adminManagementController = require('../controllers/admin/adminManagement.controller');
 
 const { requireAdmin, requireSuperAdmin } = require('../middleware/requireAdmin');
 const { adminLoginLimiter, adminApiLimiter } = require('../middleware/rateLimiter');
+const { uploadProfilePicture } = require('../middleware/uploadHandler');
 
 // ---- Auth (public within /admin-api, but rate-limited hard) ----
 router.post('/auth/login', adminLoginLimiter, adminAuthController.login);
 router.get('/auth/me', requireAdmin, adminAuthController.me);
+router.patch('/auth/profile', requireAdmin, adminAuthController.updateProfile);
+router.patch('/auth/password', requireAdmin, adminAuthController.changePassword);
+router.post('/auth/profile-picture', requireAdmin, uploadProfilePicture.single('profilePicture'), adminAuthController.uploadProfilePicture);
+router.delete('/auth/profile-picture', requireAdmin, adminAuthController.removeProfilePicture);
 
 // Everything below this line requires a valid admin token
 router.use(adminApiLimiter, requireAdmin);
+
+// ---- Admin account management (superadmin only) ----
+router.get('/admins', requireSuperAdmin, adminManagementController.list);
+router.post('/admins', requireSuperAdmin, adminManagementController.create);
+router.patch('/admins/:id', requireSuperAdmin, adminManagementController.update);
+router.post('/admins/:id/reset-password', requireSuperAdmin, adminManagementController.resetPassword);
+router.get('/admin-audit', requireSuperAdmin, adminManagementController.audit);
 
 // ---- Dashboard ----
 router.get('/dashboard/overview', adminDashboardController.getOverview);
@@ -59,6 +72,9 @@ router.patch('/users/recruiters/:id/wallet/adjust', adminUsersController.adjustR
 router.get('/users/recruiters/:id/analytics', adminUsersController.getRecruiterAnalytics);
 
 // ---- Payments monitoring ----
+router.get('/payments/overview', adminPaymentsController.getOverview);
+router.post('/payments/:id/refund', requireSuperAdmin, adminPaymentsController.refundPayment);
+router.patch('/payments/refunds/:id/status', requireSuperAdmin, adminPaymentsController.updateRefundStatus);
 router.get('/payments', adminPaymentsController.listPayments);
 router.get('/payments/:id', adminPaymentsController.getPaymentById);
 

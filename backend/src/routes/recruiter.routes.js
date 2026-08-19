@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const recruiterAuth = require('../controllers/auth/recruiterAuth.controller');
+const recruiterPasswordReset = require('../controllers/auth/recruiterPasswordReset.controller');
 const recruiterController = require('../controllers/recruiter.controller');
 const walletRoutes = require('./wallet.routes');
 const { verifyTokenAndStatus } = require('../middleware/auth');
@@ -13,6 +14,8 @@ router.use('/wallet', walletRoutes);
 // Public
 router.post('/register', recruiterAuth.register);
 router.post('/login', recruiterAuth.login);
+router.post('/password/forgot/send', recruiterPasswordReset.sendResetOtp);
+router.post('/password/forgot/reset', recruiterPasswordReset.resetPassword);
 router.get('/:recruiterId/public-profile', recruiterController.getPublicProfile);
 
 // Authenticated (recruiter only)

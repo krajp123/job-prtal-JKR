@@ -15,7 +15,7 @@ const paymentSchema = new mongoose.Schema(
 
     razorpayOrderId: { type: String },
     razorpayPaymentId: { type: String },
-    status: { type: String, enum: ['pending', 'success', 'failed'], default: 'pending' },
+    status: { type: String, enum: ['pending', 'success', 'failed', 'refunded'], default: 'pending' },
 
     relatedResumeDownload: {
       candidate: { type: mongoose.Schema.Types.ObjectId, ref: 'Candidate' },

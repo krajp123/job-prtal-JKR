@@ -98,7 +98,7 @@ export default function LoginForm({ role, onSuccess, onForgotPassword }) {
                 {loading ? 'Logging in…' : 'Log In'}
             </button>
 
-            {role === 'candidate' && (
+            {role === 'candidate' ? (
                 <p className="mt-3 flex items-center justify-center gap-2 text-center text-[12.5px] text-[#80576A]">
                     <a href="/id-recovery" className="underline hover:text-[#C75560]">
                         Forgot your Unique ID?
@@ -109,6 +109,12 @@ export default function LoginForm({ role, onSuccess, onForgotPassword }) {
                         onClick={onForgotPassword}
                         className="underline hover:text-[#C75560]"
                     >
+                        Forgot password?
+                    </button>
+                </p>
+            ) : (
+                <p className="mt-3 text-center text-[12.5px] text-[#80576A]">
+                    <button type="button" onClick={onForgotPassword} className="underline hover:text-[#C75560]">
                         Forgot password?
                     </button>
                 </p>

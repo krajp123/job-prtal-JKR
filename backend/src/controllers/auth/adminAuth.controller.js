@@ -1,6 +1,8 @@
 const Admin = require('../../models/Admin');
 const { hashPassword, comparePassword } = require('../../utils/hashPassword');
 const { generateAdminToken } = require('../../utils/generateToken');
+const { logAdminAction } = require('../../services/audit.service');
+const { cloudinary, isCloudinaryConfigured } = require('../../config/cloudinary');
 
 // There is deliberately NO public "admin register" route.
 // Admin accounts are created manually (via a seed script or directly by a
@@ -12,31 +14,145 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const admin = await Admin.findOne({ email });
-    if (!admin || !admin.isActive) {
-      // Same generic error whether the account doesn't exist or is inactive -
-      // avoids leaking which emails are valid admin accounts.
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const admin = await Admin.findOne({ email: String(email || '').trim().toLowerCase() });
+    if (!admin) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!admin.isActive) return res.status(401).json({ error: 'Invalid credentials' });
+
+    if (admin.lockUntil && admin.lockUntil > new Date()) {
+      return res.status(423).json({ error: 'Account temporarily locked. Try again later.' });
     }
 
     const match = await comparePassword(password, admin.passwordHash);
     if (!match) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      admin.failedLoginAttempts += 1;
+      if (admin.failedLoginAttempts >= 5) {
+        admin.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+        admin.failedLoginAttempts = 0;
+      }
+      await admin.save();
+      return res.status(401).json({ error: 'Wrong ID/Password' });
     }
 
+    admin.failedLoginAttempts = 0;
+    admin.lockUntil = undefined;
     admin.lastLoginAt = new Date();
     admin.lastLoginIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip;
     await admin.save();
+
+    await logAdminAction({ adminId: admin._id, action: 'ADMIN_LOGIN', targetType: 'Admin', targetId: admin._id, ip: req.ip });
 
     const token = generateAdminToken({ id: admin._id, role: admin.role });
 
     res.json({
       token,
+      id: admin._id,
       name: admin.name,
       role: admin.role,
+      profilePictureUrl: admin.profilePictureUrl || null,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    if (!name?.trim() || !email?.trim()) return res.status(400).json({ error: 'Name and email are required' });
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: 'Enter a valid email address' });
+    }
+
+    const existingAdmin = await Admin.findOne({ email: normalizedEmail, _id: { $ne: req.admin.id } });
+    if (existingAdmin) return res.status(409).json({ error: 'An admin with this email already exists' });
+
+    const admin = await Admin.findByIdAndUpdate(
+      req.admin.id,
+      { $set: { name: name.trim(), email: normalizedEmail } },
+      { new: true, runValidators: true }
+    ).select('-passwordHash');
+    if (!admin) return res.status(404).json({ error: 'Admin account not found' });
+
+    await logAdminAction({ adminId: admin._id, action: 'UPDATE_ADMIN_PROFILE', targetType: 'Admin', targetId: admin._id, ip: req.ip });
+    res.json(admin);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Current and new passwords are required' });
+    if (newPassword.length < 12 || !/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      return res.status(400).json({ error: 'Password must be at least 12 characters and include an uppercase letter and a number' });
+    }
+
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) return res.status(404).json({ error: 'Admin account not found' });
+    if (!(await comparePassword(currentPassword, admin.passwordHash))) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    admin.passwordHash = await hashPassword(newPassword);
+    admin.failedLoginAttempts = 0;
+    admin.lockUntil = undefined;
+    await admin.save();
+    await logAdminAction({ adminId: admin._id, action: 'CHANGE_ADMIN_PASSWORD', targetType: 'Admin', targetId: admin._id, ip: req.ip });
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.uploadProfilePicture = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No profile picture uploaded' });
+    if (!isCloudinaryConfigured) return res.status(503).json({ error: 'Profile picture storage is not configured' });
+
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) return res.status(404).json({ error: 'Admin account not found' });
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { folder: 'admin-profile-pictures', resource_type: 'image', quality: 'auto', fetch_format: 'auto' },
+        (error, result) => (error ? reject(error) : resolve(result))
+      );
+      uploadStream.end(req.file.buffer);
+    });
+
+    const previousUrl = admin.profilePictureUrl;
+    admin.profilePictureUrl = uploadResult.secure_url;
+    await admin.save();
+
+    if (previousUrl?.includes('cloudinary.com')) {
+      const publicId = previousUrl.split('/').slice(-2).join('/').split('.')[0];
+      await cloudinary.uploader.destroy(publicId, { resource_type: 'image' }).catch(() => {});
+    }
+
+    await logAdminAction({ adminId: admin._id, action: 'UPDATE_ADMIN_PROFILE_PICTURE', targetType: 'Admin', targetId: admin._id, ip: req.ip });
+    res.json({ message: 'Profile picture updated successfully', profilePictureUrl: admin.profilePictureUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to upload profile picture' });
+  }
+};
+
+exports.removeProfilePicture = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) return res.status(404).json({ error: 'Admin account not found' });
+    if (admin.profilePictureUrl?.includes('cloudinary.com')) {
+      const publicId = admin.profilePictureUrl.split('/').slice(-2).join('/').split('.')[0];
+      await cloudinary.uploader.destroy(publicId, { resource_type: 'image' }).catch(() => {});
+    }
+    admin.profilePictureUrl = undefined;
+    await admin.save();
+    await logAdminAction({ adminId: admin._id, action: 'REMOVE_ADMIN_PROFILE_PICTURE', targetType: 'Admin', targetId: admin._id, ip: req.ip });
+    res.json({ message: 'Profile picture removed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to remove profile picture' });
   }
 };
 

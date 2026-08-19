@@ -169,7 +169,7 @@ export default function AuthModal({ isOpen, role, mode, onClose, onModeChange, o
                                         </p>
                                     </>
                                 ) : mode === 'forgot-password' ? (
-                                    <ForgotPasswordForm onSwitchToLogin={() => onModeChange('login')} />
+                                    <ForgotPasswordForm role={role} onSwitchToLogin={() => onModeChange('login')} />
                                 ) : role === 'candidate' ? (
                                     <CandidateRegisterForm
                                         onSwitchToLogin={() => onModeChange('login')}

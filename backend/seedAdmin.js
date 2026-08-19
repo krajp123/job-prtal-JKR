@@ -2,6 +2,7 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const connectDB = require('./src/config/db');
 const { createAdminAccount } = require('./src/controllers/auth/adminAuth.controller');
+const { hashPassword } = require('./src/utils/hashPassword');
 const Admin = require('./src/models/Admin');
 
 async function run() {
@@ -9,6 +10,11 @@ async function run() {
 
   if (!name || !email || !password) {
     console.error('Usage: node seedAdmin.js "Admin Name" "admin@example.com" "StrongPassword123!" [role]');
+    process.exit(1);
+  }
+
+  if (role && !['admin', 'superadmin'].includes(role)) {
+    console.error('Role must be either "admin" or "superadmin".');
     process.exit(1);
   }
 
@@ -26,13 +32,18 @@ async function run() {
     });
     console.log('Created new admin account.');
   } else {
-    console.log('Admin account already exists for this email.');
+    admin.passwordHash = await hashPassword(password);
+    admin.isActive = true;
+    admin.failedLoginAttempts = 0;
+    admin.lockUntil = undefined;
+    if (role) admin.role = role;
+    await admin.save();
+    console.log('Existing admin account password and access settings updated.');
   }
 
   console.log('\n--- Admin login credentials ---');
   console.log(`Name: ${name}`);
   console.log(`Email: ${normalizedEmail}`);
-  console.log(`Password: ${password}`);
   console.log(`Role: ${admin.role}`);
   console.log('--------------------------------\n');
 

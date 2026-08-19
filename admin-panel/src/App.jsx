@@ -21,6 +21,8 @@ import ManagePayments from './pages/ManagePayments';
 import BadgeApprovals from './pages/BadgeApprovals';
 import Disputes from './pages/Disputes';
 import ReopenRequests from './pages/ReopenRequests';
+import AdminManagement from './pages/AdminManagement';
+import AdminProfile from './pages/AdminProfile';
 
 export default function App() {
   return (
@@ -46,6 +48,8 @@ export default function App() {
             <Route path="payments" element={<ManagePayments />} />
             <Route path="badges" element={<BadgeApprovals />} />
             <Route path="disputes" element={<Disputes />} />
+            <Route path="admins" element={<AdminProtectedRoute requireSuperAdmin><AdminManagement /></AdminProtectedRoute>} />
+            <Route path="profile" element={<AdminProfile />} />
           </Route>
         </Routes>
       </BrowserRouter>

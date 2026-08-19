@@ -15,7 +15,12 @@ const publicLimiter = rateLimit({
 // Tighter limiter for the admin login route specifically - slows down brute force attempts
 const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: isProduction ? 5 : 50,
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    return `${req.ip}:${email || 'unknown'}`;
+  },
+  skipSuccessfulRequests: true,
   message: { error: 'Too many login attempts. Try again later.' },
   standardHeaders: true,
   legacyHeaders: false,

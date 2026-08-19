@@ -9,11 +9,12 @@ export default function ManagePayments() {
   }, []);
 
   return (
-    <div style={{ maxWidth: 800, margin: '40px auto', fontFamily: 'sans-serif' }}>
+    <div className="w-full space-y-4">
       <h2>Payments</h2>
-      <table width="100%" cellPadding="8" style={{ borderCollapse: 'collapse' }}>
+      <div className="overflow-x-auto border border-[#1D181A] bg-[#FFFDFB]">
+      <table className="w-full min-w-[640px] border-collapse text-xs text-left">
         <thead>
-          <tr style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>
+          <tr className="border border-[#1D181A] bg-[#FFF4EF]">
             <th>Purpose</th>
             <th>Amount (Rs.)</th>
             <th>Status</th>
@@ -22,7 +23,7 @@ export default function ManagePayments() {
         </thead>
         <tbody>
           {payments.map((p) => (
-            <tr key={p._id} style={{ borderBottom: '1px solid #eee' }}>
+            <tr key={p._id} className="border border-[#1D181A] hover:bg-[#FFF0E8]">
               <td>{p.purpose}</td>
               <td>{p.amount}</td>
               <td>{p.status}</td>
@@ -31,6 +32,7 @@ export default function ManagePayments() {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

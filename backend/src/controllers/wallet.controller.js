@@ -45,10 +45,11 @@ async function applyResumeDownloadCharge(recruiterId, { candidateId, candidateNa
   wallet.totalSpent += RESUME_DOWNLOAD_FEE;
   wallet.resumesDownloaded += 1;
   wallet.transactions.push(transaction);
+  const walletTransaction = wallet.transactions[wallet.transactions.length - 1];
 
   await wallet.save();
 
-  await Payment.create({
+  const payment = await Payment.create({
     userType: 'recruiter',
     userId: recruiterId,
     userTypeRef: 'Recruiter',
@@ -58,9 +59,12 @@ async function applyResumeDownloadCharge(recruiterId, { candidateId, candidateNa
     relatedResumeDownload: { candidate: candidateId },
   });
 
+  walletTransaction.relatedPayment = payment._id;
+  await wallet.save();
+
   return {
     message: 'Resume download fee deducted',
-    transaction,
+    transaction: walletTransaction,
     walletBalance: wallet.balance,
   };
 }
@@ -228,6 +232,7 @@ exports.initiateWalletRecharge = async (req, res) => {
     };
 
     wallet.transactions.push(transaction);
+    const walletTransaction = wallet.transactions[wallet.transactions.length - 1];
     await wallet.save();
 
     // Create payment record
@@ -241,7 +246,7 @@ exports.initiateWalletRecharge = async (req, res) => {
       status: 'pending',
       walletCreditDetails: {
         paymentMethodId,
-        walletTransactionId: transaction._id,
+        walletTransactionId: walletTransaction._id,
       },
     });
 

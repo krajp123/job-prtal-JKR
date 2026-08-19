@@ -5,12 +5,10 @@ import PasswordField from './PasswordField';
 
 const FONT_DISPLAY = "'Space Grotesk','Inter',ui-sans-serif,sans-serif";
 
-// Candidate-only for now — recruiters authenticate with email + password,
-// so a standard "forgot password" flow for recruiters would look different
-// (no Unique ID involved) and isn't wired up yet.
-export default function ForgotPasswordForm({ onSwitchToLogin }) {
+export default function ForgotPasswordForm({ role = 'candidate', onSwitchToLogin }) {
     const [step, setStep] = useState('id'); // 'id' | 'reset' | 'done'
     const [uniqueId, setUniqueId] = useState('');
+    const [email, setEmail] = useState('');
     const [code, setCode] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -37,7 +35,9 @@ export default function ForgotPasswordForm({ onSwitchToLogin }) {
         setError('');
         setSubmitting(true);
         try {
-            const { data } = await axiosInstance.post('/candidate/password/forgot/send', { uniqueId });
+            const endpoint = role === 'candidate' ? '/candidate/password/forgot/send' : '/recruiter/password/forgot/send';
+            const payload = role === 'candidate' ? { uniqueId } : { email };
+            const { data } = await axiosInstance.post(endpoint, payload);
             setMaskedEmail(data.maskedEmail || '');
             setStep('reset');
         } catch (err) {
@@ -58,7 +58,9 @@ export default function ForgotPasswordForm({ onSwitchToLogin }) {
         }
         setSubmitting(true);
         try {
-            await axiosInstance.post('/candidate/password/forgot/reset', { uniqueId, code, newPassword });
+            const endpoint = role === 'candidate' ? '/candidate/password/forgot/reset' : '/recruiter/password/forgot/reset';
+            const payload = role === 'candidate' ? { uniqueId, code, newPassword } : { email, code, newPassword };
+            await axiosInstance.post(endpoint, payload);
             setStep('done');
         } catch (err) {
             setError(err.response?.data?.error || 'Could not reset password');
@@ -76,14 +78,16 @@ export default function ForgotPasswordForm({ onSwitchToLogin }) {
             {step === 'id' && (
                 <>
                     <p className="mb-5 text-[13px] text-[#80576A]">
-                        Enter your Unique ID — we'll send a verification code to your registered email.
+                        {role === 'candidate'
+                            ? "Enter your Unique ID — we'll send a verification code to your registered email."
+                            : "Enter your work email — we'll send a verification code to your registered email."}
                     </p>
                     <form onSubmit={handleSendOtp}>
                         <FormField
-                            type="text"
-                            placeholder="Unique ID"
-                            value={uniqueId}
-                            onChange={(e) => setUniqueId(e.target.value)}
+                            type={role === 'candidate' ? 'text' : 'email'}
+                            placeholder={role === 'candidate' ? 'Unique ID' : 'Work email'}
+                            value={role === 'candidate' ? uniqueId : email}
+                            onChange={(e) => role === 'candidate' ? setUniqueId(e.target.value) : setEmail(e.target.value)}
                             required
                         />
                         {error && <p className="mb-3 text-[12.5px] font-medium text-[#F28B82]">{error}</p>}

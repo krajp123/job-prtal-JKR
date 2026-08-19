@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, X, Search, RefreshCcw, X as CloseIcon } from 'lucide-react';
+import { Check, X, Search, X as CloseIcon } from 'lucide-react';
 import adminAxiosInstance from '../api/adminAxiosInstance';
 
 const STATUS_FILTERS = [
@@ -28,6 +28,7 @@ export default function ReopenRequests() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedRequest, setSelectedRequest] = useState(null);
 
   useEffect(() => {
@@ -48,9 +49,24 @@ export default function ReopenRequests() {
   }, []);
 
   const filteredRequests = useMemo(() => {
-    if (filter === 'all') return requests;
-    return requests.filter((request) => request.status === filter);
-  }, [requests, filter]);
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return requests.filter((request) => {
+      const matchesFilter = filter === 'all' || request.status === filter;
+      const searchableText = [
+        request.job?.title,
+        request.recruiter?.companyName,
+        request.recruiter?.fullName,
+        request.recruiter?.email,
+        request.message,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return matchesFilter && (!normalizedSearch || searchableText.includes(normalizedSearch));
+    });
+  }, [requests, filter, searchTerm]);
 
   const openRequestDetails = (request) => {
     setSelectedRequest(request);
@@ -79,96 +95,125 @@ export default function ReopenRequests() {
     }
   };
 
+  const renderStatus = (status) => {
+    const styles =
+      status === 'approved'
+        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        : status === 'rejected'
+        ? 'bg-red-50 text-red-700 border-red-200'
+        : 'bg-[#FFF4EF] text-[#80576A] border-[#EBC2AE]';
+
+    return (
+      <span className={`inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${styles}`}>
+        {renderStatusLabel(status)}
+      </span>
+    );
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 w-full space-y-4">
       <div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <h1 className="text-xl font-semibold text-slate-900">Reopen Requests</h1>
-          <p className="mt-1 text-sm text-slate-500">Review and respond to recruiter requests to reopen admin-closed jobs.</p>
-          <div className="flex flex-wrap gap-2">
-            {STATUS_FILTERS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setFilter(item.key)}
-                className={`rounded-full px-3 py-2 text-xs font-semibold transition ${filter === item.key ? 'bg-[#C75560] text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <h1 className="text-xl font-semibold text-[#1D181A]">Reopen Requests</h1>
+        <p className="mt-1 text-sm text-[#80576A]">Review and respond to recruiter requests to reopen admin-closed jobs.</p>
       </div>
 
       {error && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
       )}
 
-      <div className="overflow-hidden -3xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid grid-cols-[1.2fr_1fr_1fr_0.8fr_0.8fr_1fr] gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          <span>Job</span>
-          <span>Recruiter</span>
-          <span>Message</span>
-          <span>Status</span>
-          <span>Requested</span>
-          <span className="text-right">Actions</span>
+      <div className="flex flex-col gap-3 border border-[#EBC2AE] bg-[#FFF4EF] p-3 md:flex-row md:items-center md:justify-between">
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#80576A]" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search by job, recruiter, email, message"
+            className="w-full border border-[#1D181A] bg-[#FFFDFB] py-2 pl-9 pr-3 text-xs text-[#1D181A] outline-none placeholder:text-[#80576A]"
+          />
         </div>
-        <div className="divide-y divide-slate-200">
+
+        <div className="flex items-center gap-2 text-xs text-[#1D181A] md:justify-end">
+          <label htmlFor="requestStatusFilter" className="font-medium whitespace-nowrap">Status</label>
+          <select
+            id="requestStatusFilter"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            className="w-full border border-[#1D181A] bg-[#FFFDFB] px-2 py-2 text-xs text-[#1D181A] outline-none md:w-auto"
+          >
+            {STATUS_FILTERS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="w-full max-w-full overflow-x-auto border border-[#1D181A] bg-[#FFFDFB]">
+        <table className="min-w-[980px] w-full table-fixed border-collapse text-xs sm:text-[11px]">
+          <thead>
+            <tr>
+              {['Job', 'Recruiter', 'Message', 'Status', 'Requested', 'Actions'].map((label) => (
+                <th key={label} className="border border-[#1D181A] bg-[#FFF4EF] px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-[#1D181A] break-words">
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
           {loading ? (
-            <div className="p-6 text-sm text-slate-500">Loading requests…</div>
+            <tr><td colSpan="6" className="border border-[#1D181A] px-2 py-6 text-center text-[#80576A]">Loading requests…</td></tr>
           ) : filteredRequests.length === 0 ? (
-            <div className="p-6 text-sm text-slate-500">No reopen requests found.</div>
+            <tr><td colSpan="6" className="border border-[#1D181A] px-2 py-6 text-center text-[#80576A]">No reopen requests found.</td></tr>
           ) : (
-            filteredRequests.map((request) => (
-              <div key={request._id} className="grid grid-cols-[1.2fr_1fr_1fr_0.8fr_0.8fr_1fr] gap-3 px-5 py-4 text-sm text-slate-700 hover:bg-slate-50">
-                <div className="space-y-1">
-                  <p className="font-medium text-slate-900">{request.job?.title || 'Unknown job'}</p>
-                  <p className="text-xs text-slate-500">Closed by admin: {request.job?.adminClosed ? 'Yes' : 'No'}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-slate-900">{request.recruiter?.companyName || request.recruiter?.fullName || 'Unknown recruiter'}</p>
-                  <p className="text-xs text-slate-500">{request.recruiter?.email || 'No email'}</p>
-                </div>
-                <div className="min-w-0">
+            filteredRequests.map((request, index) => (
+              <tr key={request._id} className={`transition hover:bg-[#FFF0E8] ${index % 2 === 0 ? 'bg-[#FFFDFB]' : 'bg-[#FFF4EF]/40'}`}>
+                <td className="border border-[#1D181A] px-2 py-2 align-top text-[#1D181A] break-words">
+                  <p className="font-medium">{request.job?.title || 'Unknown job'}</p>
+                  <p className="mt-1 text-[10px] text-[#80576A]">Closed by admin: {request.job?.adminClosed ? 'Yes' : 'No'}</p>
+                </td>
+                <td className="border border-[#1D181A] px-2 py-2 align-top text-[#1D181A] break-words">
+                  <p className="font-medium">{request.recruiter?.companyName || request.recruiter?.fullName || 'Unknown recruiter'}</p>
+                  <p className="mt-1 text-[10px] text-[#80576A]">{request.recruiter?.email || 'No email'}</p>
+                </td>
+                <td className="border border-[#1D181A] px-2 py-2 align-top text-[#1D181A] break-words">
                   <button
                     type="button"
                     onClick={() => openRequestDetails(request)}
-                    className="max-w-full cursor-pointer bg-transparent px-0 py-0 text-left text-slate-700 transition hover:text-slate-900"
+                    className="max-w-full cursor-pointer bg-transparent px-0 py-0 text-left text-[#1D181A] transition hover:text-[#C75560]"
                     title={request.message || 'View full message'}
                   >
                     <span className="block truncate">{truncateMessage(request.message, 110)}</span>
                   </button>
-                </div>
-                <div className="uppercase text-xs font-semibold text-slate-600">{renderStatusLabel(request.status)}</div>
-                <div className="text-slate-500">{formatDate(request.createdAt)}</div>
-                <div className="flex justify-end gap-2">
+                </td>
+                <td className="border border-[#1D181A] px-2 py-2 align-top">{renderStatus(request.status)}</td>
+                <td className="border border-[#1D181A] px-2 py-2 align-top text-[#80576A]">{formatDate(request.createdAt)}</td>
+                <td className="border border-[#1D181A] px-2 py-2 align-top">
+                  <div className="flex flex-wrap gap-2">
                   {request.status === 'pending' ? (
                     <>
                       <button
                         type="button"
                         onClick={() => handleDecision(request._id, 'approve')}
-                        className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                        className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
                       >
                         <Check size={14} /> Approve
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDecision(request._id, 'reject')}
-                        className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                        className="inline-flex items-center gap-1 border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700 transition hover:bg-rose-100"
                       >
                         <X size={14} /> Reject
                       </button>
                     </>
                   ) : (
-                    <span className={`inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold ${request.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                      {renderStatusLabel(request.status)}
-                    </span>
+                    renderStatus(request.status)
                   )}
-                </div>
-              </div>
+                  </div>
+                </td>
+              </tr>
             ))
           )}
-        </div>
+          </tbody>
+        </table>
       </div>
 
       {selectedRequest && (

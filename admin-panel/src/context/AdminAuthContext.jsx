@@ -1,4 +1,5 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import adminAxiosInstance from '../api/adminAxiosInstance';
 
 const AdminAuthContext = createContext(null);
 
@@ -8,9 +9,22 @@ export function AdminAuthProvider({ children }) {
     return stored ? JSON.parse(stored) : null;
   });
 
-  function login({ token, name, role }) {
+  useEffect(() => {
+    if (!admin || admin.id) return;
+    adminAxiosInstance.get('/auth/me')
+      .then(({ data }) => {
+        const hydrated = { id: data._id, name: data.name, email: data.email, role: data.role, profilePictureUrl: data.profilePictureUrl };
+        localStorage.setItem('admin_user', JSON.stringify(hydrated));
+        setAdmin(hydrated);
+      })
+      .catch(() => {
+        // The API interceptor handles expired sessions.
+      });
+  }, [admin]);
+
+  function login({ token, id, name, role, profilePictureUrl }) {
     localStorage.setItem('admin_token', token);
-    const adminData = { name, role };
+    const adminData = { id, name, role, profilePictureUrl };
     localStorage.setItem('admin_user', JSON.stringify(adminData));
     setAdmin(adminData);
   }
@@ -21,8 +35,16 @@ export function AdminAuthProvider({ children }) {
     setAdmin(null);
   }
 
+  function updateAdmin(patch) {
+    setAdmin((current) => {
+      const updated = { ...current, ...patch };
+      localStorage.setItem('admin_user', JSON.stringify(updated));
+      return updated;
+    });
+  }
+
   return (
-    <AdminAuthContext.Provider value={{ admin, login, logout }}>
+    <AdminAuthContext.Provider value={{ admin, login, logout, updateAdmin }}>
       {children}
     </AdminAuthContext.Provider>
   );

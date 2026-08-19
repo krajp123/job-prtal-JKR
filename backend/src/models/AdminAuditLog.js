@@ -13,4 +13,8 @@ const adminAuditLogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+adminAuditLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
+adminAuditLogSchema.index({ admin: 1, createdAt: -1 });
+adminAuditLogSchema.index({ action: 1, createdAt: -1 });
+
 module.exports = mongoose.model('AdminAuditLog', adminAuditLogSchema);

@@ -87,11 +87,11 @@ export default function Candidates() {
       );
     }
 
-    return <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">{candidate[key] || '—'}</span>;
+    return <span className="block max-w-full break-words whitespace-normal">{candidate[key] || '—'}</span>;
   };
 
   return (
-    <div className="space-y-4 w-full overflow-hidden">
+    <div className="min-w-0 w-full space-y-4">
       <div>
         <h1 className="text-xl font-semibold text-[#1D181A]">Candidates</h1>
         <p className="mt-1 text-sm text-[#80576A]">Browse and manage candidate registrations.</p>
@@ -127,7 +127,7 @@ export default function Candidates() {
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-[#1D181A] bg-[#FFFDFB]">
+      <div className="w-full max-w-full overflow-x-auto border border-[#1D181A] bg-[#FFFDFB]">
         <table className="min-w-[760px] w-full table-fixed border-collapse text-xs sm:text-[11px]">
           <thead>
             <tr>
