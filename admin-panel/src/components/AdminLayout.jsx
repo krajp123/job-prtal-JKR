@@ -115,25 +115,32 @@ export default function AdminLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [adminNotifications, setAdminNotifications] = useState([]);
   const notificationRef = useRef(null);
 
-  const refreshPendingRequests = async () => {
+  const refreshNotifications = async () => {
     try {
-      const { data } = await adminAxiosInstance.get('/jobs/reopen-requests');
-      const pending = Array.isArray(data) ? data.filter((req) => req.status === 'pending') : [];
+      const [requestsResponse, notificationsResponse] = await Promise.all([
+        adminAxiosInstance.get('/jobs/reopen-requests'),
+        adminAxiosInstance.get('/admin/notifications'),
+      ]);
+      const pending = Array.isArray(requestsResponse.data)
+        ? requestsResponse.data.filter((req) => req.status === 'pending')
+        : [];
       setPendingRequests(pending);
+      setAdminNotifications(notificationsResponse.data?.items || []);
     } catch (err) {
-      console.error('Failed to fetch pending reopen requests:', err);
+      console.error('Failed to fetch admin notifications:', err);
     }
   };
 
   useEffect(() => {
-    refreshPendingRequests();
+    refreshNotifications();
   }, []);
 
   useEffect(() => {
     const handleReopenRequestsUpdate = () => {
-      refreshPendingRequests();
+      refreshNotifications();
     };
 
     window.addEventListener('reopenRequestsUpdated', handleReopenRequestsUpdate);
@@ -158,6 +165,17 @@ export default function AdminLayout() {
     navigate('/reopen-requests');
     setNotificationsOpen(false);
   };
+
+  const handleAdminNotificationClick = async (notification) => {
+    if (!notification.read) {
+      await adminAxiosInstance.patch(`/admin/notifications/${notification._id}/read`).catch(() => {});
+      setAdminNotifications((current) => current.map((item) => item._id === notification._id ? { ...item, read: true } : item));
+    }
+    setNotificationsOpen(false);
+  };
+
+  const unreadAdminNotifications = adminNotifications.filter((notification) => !notification.read).length;
+  const totalNotificationCount = pendingRequests.length + unreadAdminNotifications;
 
   const handleLogout = () => {
     logout();
@@ -193,9 +211,9 @@ export default function AdminLayout() {
                 className="relative rounded-lg border border-[#EBC2AE] bg-white p-1.5 text-[#80576A] transition hover:bg-[#FFF0E8] hover:text-[#C75560]"
               >
                 <Bell size={17} />
-                {pendingRequests.length > 0 && (
+                {totalNotificationCount > 0 && (
                   <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#C75560] text-[9px] font-semibold text-white">
-                    {pendingRequests.length}
+                    {totalNotificationCount}
                   </span>
                 )}
               </button>
@@ -205,15 +223,31 @@ export default function AdminLayout() {
                   <div className="sticky top-0 border-b border-[#EBC2AE] bg-[#FFF9F5] px-4 py-3">
                     <p className="text-sm font-semibold text-[#1D181A]">Notifications</p>
                   </div>
-                  {pendingRequests.length === 0 ? (
+                  {pendingRequests.length === 0 && adminNotifications.length === 0 ? (
                     <div className="px-4 py-6 text-center text-xs text-[#80576A]">
                       No pending notifications
                     </div>
                   ) : (
                     <div className="divide-y divide-[#EBC2AE]">
+                      {adminNotifications.map((notification) => (
+                        <button
+                          key={notification._id}
+                          onClick={() => handleAdminNotificationClick(notification)}
+                          className={`w-full px-4 py-3 text-left transition hover:bg-[#FFF0E8] ${notification.read ? 'opacity-60' : ''}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#C75560]" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-[#1D181A]">{notification.title}</p>
+                              <p className="mt-0.5 text-xs text-[#80576A]">{notification.message}</p>
+                              <p className="mt-1 text-[10px] text-[#A08A93]">{new Date(notification.createdAt).toLocaleString('en-IN')}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
                       {pendingRequests.map((request) => (
                         <button
-                          key={request._id}
+                          key={`reopen-${request._id}`}
                           onClick={() => handleNotificationClick(request._id)}
                           className="w-full px-4 py-3 text-left hover:bg-[#FFF0E8] transition"
                         >

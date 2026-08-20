@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { publicLimiter } = require('./middleware/rateLimiter');
+const maintenanceMode = require('./middleware/maintenanceMode');
 
 const candidateRoutes = require('./routes/candidate.routes');
 const recruiterRoutes = require('./routes/recruiter.routes');
@@ -18,6 +19,7 @@ const messageRoutes = require('./routes/message.routes');
 const otpRoutes = require('./routes/otp.routes');
 const referralRoutes = require('./routes/referral.routes');
 const notificationRoutes = require('./routes/notification.routes');
+const platformRoutes = require('./routes/platform.routes');
 const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
@@ -79,6 +81,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // ---- Public API (job seekers + recruiters) ----
 app.use('/api', publicLimiter);
+app.use('/api', maintenanceMode);
 app.use('/api/candidate', candidateRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/recruiter', recruiterRoutes);
@@ -90,6 +93,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/referral', referralRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/platform', platformRoutes);
 
 // ---- Admin API - completely separate base path, own rate limits, own auth ----
 // No route here is ever imported into or linked from the public frontend.

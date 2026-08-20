@@ -53,6 +53,14 @@ function formatDateTime(date) {
   });
 }
 
+function formatExportDate(date) {
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatExportTime(date) {
+  return date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 function startOfDay(d) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
@@ -725,8 +733,8 @@ function FilterDrawer({ open, onClose, filters, setFilters }) {
 /* ------------------------------------------------------------------ */
 
 function exportCSV(rows, notify) {
-  const header = ['Transaction ID', 'Recruiter', 'Company', 'Type', 'Amount', 'Method', 'Status', 'Date'];
-  const lines = rows.map((t) => [t.id, t.recruiter.name, t.recruiter.company, t.type, t.amount, t.paymentMethod, t.status, formatDateTime(t.date)]);
+  const header = ['Transaction ID', 'Type', 'User', 'Account / Company', 'Amount', 'Method', 'Status', 'Date', 'Time'];
+  const lines = rows.map((t) => [t.id, t.type, t.recruiter.name, t.recruiter.company, t.amount, t.paymentMethod, t.status, formatExportDate(t.date), formatExportTime(t.date)]);
   const csv = [header, ...lines].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -736,6 +744,54 @@ function exportCSV(rows, notify) {
   a.click();
   URL.revokeObjectURL(url);
   notify(`Exported ${rows.length} transactions as CSV`);
+}
+
+function exportExcel(rows, notify) {
+  const header = ['Transaction ID', 'Type', 'User', 'Account / Company', 'Amount', 'Method', 'Status', 'Date', 'Time'];
+  const lines = rows.map((t) => [
+    t.id,
+    t.type,
+    t.recruiter.name,
+    t.recruiter.company,
+    t.amount,
+    t.paymentMethod,
+    t.status,
+    formatExportDate(t.date),
+    formatExportTime(t.date),
+  ]);
+  const escapeXml = (value) => String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+  const widths = [155, 125, 135, 175, 75, 95, 80, 100, 85];
+  const columnMarkup = widths.map((width) => `<Column ss:Width="${width}"/>`).join('');
+  const headerMarkup = `<Row ss:StyleID="Header">${header.map((value) => `<Cell><Data ss:Type="String">${escapeXml(value)}</Data></Cell>`).join('')}</Row>`;
+  const rowMarkup = lines.map((row) => `<Row>${row.map((value, index) => {
+    const type = index === 4 ? 'Number' : 'String';
+    return `<Cell ss:StyleID="${index >= 7 ? 'Text' : 'Cell'}"><Data ss:Type="${type}">${escapeXml(value)}</Data></Cell>`;
+  }).join('')}</Row>`).join('');
+  const content = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#FFF0E8" ss:Pattern="Solid"/><Alignment ss:Horizontal="Left" ss:Vertical="Center" ss:WrapText="1"/></Style>
+    <Style ss:ID="Cell"><Alignment ss:Vertical="Center" ss:WrapText="1"/></Style>
+    <Style ss:ID="Text"><NumberFormat ss:Format="@"/><Alignment ss:Vertical="Center" ss:WrapText="1"/></Style>
+  </Styles>
+  <Worksheet ss:Name="Transactions"><Table ss:ExpandedColumnCount="9" ss:ExpandedRowCount="${lines.length + 1}">${columnMarkup}${headerMarkup}${rowMarkup}</Table>
+    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane></WorksheetOptions>
+  </Worksheet>
+</Workbook>`;
+  const blob = new Blob([content], { type: 'application/vnd.ms-excel' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `transactions-${Date.now()}.xls`;
+  link.click();
+  URL.revokeObjectURL(url);
+  notify(`Exported ${rows.length} transactions as Excel`);
 }
 
 function ExportMenu({ transactions, notify }) {
@@ -755,11 +811,8 @@ function ExportMenu({ transactions, notify }) {
             <button onClick={() => { exportCSV(transactions, notify); setOpen(false); }} className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-[#1D181A] hover:bg-[#FFF0E8]">
               <Download size={14} /> CSV (current filters)
             </button>
-            <button onClick={() => { notify('Excel export needs a backend export job — see notes below the page.'); setOpen(false); }} className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-[#1D181A] hover:bg-[#FFF0E8]">
+            <button onClick={() => { exportExcel(transactions, notify); setOpen(false); }} className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-[#1D181A] hover:bg-[#FFF0E8]">
               <Download size={14} /> Excel
-            </button>
-            <button onClick={() => { notify('PDF export needs a backend export job — see notes below the page.'); setOpen(false); }} className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-[#1D181A] hover:bg-[#FFF0E8]">
-              <Download size={14} /> PDF
             </button>
           </div>
         </>

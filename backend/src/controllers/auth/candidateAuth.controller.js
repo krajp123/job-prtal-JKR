@@ -9,8 +9,10 @@ const { generateUniqueId } = require('../../services/uniqueId.service');
 const { sendEmail } = require('../../services/email.service');
 const { isVerified, clearVerified } = require('../../services/verificationStore.service');
 const { r2Client, BUCKET_NAME, PUBLIC_URL } = require('../../config/cloudflareR2');
-const { razorpayInstance, PRICING } = require('../../config/razorpay');
+const { razorpayInstance } = require('../../config/razorpay');
+const { getPaymentPricing } = require('../../services/platformSettings.service');
 const { isValidPhone, isValidEmail, isStrongEnoughPassword } = require('../../utils/validators');
+const { calculateCharge } = require('../../services/tax.service');
 
 const PENDING_REGISTRATION_TTL_MS = 30 * 60 * 1000; // 30 minutes to finish paying
 const isDevPaymentDisabled = !razorpayInstance && process.env.NODE_ENV !== 'production';
@@ -82,7 +84,12 @@ exports.createRegistrationOrder = async (req, res) => {
       experienceCertificateUrl = await uploadCertificateToR2(req.file);
     }
 
-    const amount = PRICING.CANDIDATE_REGISTRATION; // ₹9
+    const pricing = await getPaymentPricing();
+    const charge = calculateCharge(pricing.CANDIDATE_REGISTRATION, {
+      gstEnabled: pricing.GST_ENABLED,
+      gstRate: pricing.GST_RATE,
+    });
+    const amount = charge.totalAmount;
     let order;
 
     if (isDevPaymentDisabled) {
@@ -109,6 +116,9 @@ exports.createRegistrationOrder = async (req, res) => {
       workStatus: workStatus || 'fresher',
       experienceCertificateUrl,
       amount,
+      baseAmount: charge.baseAmount,
+      gstAmount: charge.gstAmount,
+      gstRate: charge.gstRate,
       expiresAt: new Date(Date.now() + PENDING_REGISTRATION_TTL_MS),
     });
 
@@ -191,6 +201,10 @@ exports.verifyRegistrationPayment = async (req, res) => {
       userTypeRef: 'Candidate',
       purpose: 'registration',
       amount: pending.amount,
+      baseAmount: pending.baseAmount || pending.amount,
+      gstAmount: pending.gstAmount || 0,
+      gstRate: pending.gstRate || 0,
+      totalAmount: pending.amount,
       razorpayOrderId: razorpay_order_id,
       razorpayPaymentId: razorpay_payment_id,
       status: 'success',

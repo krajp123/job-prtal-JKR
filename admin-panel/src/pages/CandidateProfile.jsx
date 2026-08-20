@@ -351,6 +351,7 @@ function AnalyticsChart({ metric, onSelect, candidateId }) {
       })),
     [data, axisMax, chartW, chartH] // eslint-disable-line react-hooks/exhaustive-deps
   );
+  const activeHoverIndex = hoverIndex !== null && hoverIndex < points.length ? hoverIndex : null;
 
   const linePath = buildSmoothPath(points);
   const areaPath =
@@ -487,7 +488,7 @@ function AnalyticsChart({ metric, onSelect, candidateId }) {
             {ticks.map((tick, i) => {
               const y = padding.top + chartH - (tick / axisMax) * chartH;
               return (
-                <g key={tick}>
+                <g key={`tick-${i}`}>
                   <line
                     x1={padding.left}
                     x2={width - padding.right}
@@ -503,10 +504,10 @@ function AnalyticsChart({ metric, onSelect, candidateId }) {
               );
             })}
 
-            {hoverIndex !== null && (
+            {activeHoverIndex !== null && (
               <line
-                x1={points[hoverIndex].x}
-                x2={points[hoverIndex].x}
+                x1={points[activeHoverIndex].x}
+                x2={points[activeHoverIndex].x}
                 y1={padding.top}
                 y2={padding.top + chartH}
                 stroke="#D8C7BE"
@@ -527,7 +528,7 @@ function AnalyticsChart({ metric, onSelect, candidateId }) {
                     <circle
                       cx={p.x}
                       cy={p.y}
-                      r={hoverIndex === index ? 5 : isDense ? 2.5 : 3}
+                      r={activeHoverIndex === index ? 5 : isDense ? 2.5 : 3}
                       fill="#FFFDFB"
                       stroke={color}
                       strokeWidth="2"
@@ -542,14 +543,14 @@ function AnalyticsChart({ metric, onSelect, candidateId }) {
               );
             })}
 
-            {hoverIndex !== null &&
+            {activeHoverIndex !== null &&
               (() => {
-                const p = points[hoverIndex];
+                const p = points[activeHoverIndex];
                 const tooltipW = 90;
                 const tooltipH = 28;
                 const tooltipX = Math.min(Math.max(p.x - tooltipW / 2, padding.left), width - padding.right - tooltipW);
                 const tooltipY = Math.max(p.y - tooltipH - 10, padding.top);
-                const unitLabel = activeRange.unit === 'week' || activeRange.unit === 'day' ? `Day ${labels[hoverIndex]}` : labels[hoverIndex];
+                const unitLabel = activeRange.unit === 'week' || activeRange.unit === 'day' ? `Day ${labels[activeHoverIndex]}` : labels[activeHoverIndex];
                 return (
                   <g>
                     <rect x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH} rx={6} fill="#1D181A" />

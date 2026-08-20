@@ -418,6 +418,9 @@ exports.updateMyProfile = async (req, res) => {
       companyLogoUrl,
       profilePictureUrl,
       location,
+      industry,
+      companySize,
+      companyType,
       bio,
       experienceYears,
       expertiseTags,
@@ -455,6 +458,15 @@ exports.updateMyProfile = async (req, res) => {
     }
     if (companyCin !== undefined && typeof companyCin !== 'string') {
       return res.status(400).json({ error: 'Invalid CIN number' });
+    }
+    if (industry !== undefined && typeof industry !== 'string') {
+      return res.status(400).json({ error: 'Invalid industry' });
+    }
+    if (companySize !== undefined && typeof companySize !== 'string') {
+      return res.status(400).json({ error: 'Invalid company size' });
+    }
+    if (companyType !== undefined && typeof companyType !== 'string') {
+      return res.status(400).json({ error: 'Invalid company type' });
     }
     if (profilePictureUrl !== undefined && typeof profilePictureUrl !== 'string') {
       return res.status(400).json({ error: 'Invalid profile picture URL' });
@@ -519,6 +531,9 @@ exports.updateMyProfile = async (req, res) => {
     if (companyCin !== undefined) update.companyCin = companyCin;
     if (companyDetails !== undefined) update.companyDetails = companyDetails;
     if (companyLogoUrl !== undefined) update.companyLogoUrl = companyLogoUrl;
+    if (industry !== undefined) update.industry = industry.trim();
+    if (companySize !== undefined) update.companySize = companySize.trim();
+    if (companyType !== undefined) update.companyType = companyType.trim();
     if (profilePictureUrl !== undefined) update.profilePictureUrl = profilePictureUrl || '';
     if (location !== undefined) update.location = location.trim();
     if (bio !== undefined) update.bio = bio.trim();

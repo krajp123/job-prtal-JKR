@@ -12,6 +12,10 @@ const paymentSchema = new mongoose.Schema(
       required: true,
     },
     amount: { type: Number, required: true },
+    baseAmount: { type: Number },
+    gstAmount: { type: Number, default: 0 },
+    gstRate: { type: Number, default: 0 },
+    totalAmount: { type: Number },
 
     razorpayOrderId: { type: String },
     razorpayPaymentId: { type: String },

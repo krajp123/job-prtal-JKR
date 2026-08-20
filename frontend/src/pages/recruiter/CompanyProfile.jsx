@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import RecruiterNavbar from '../../components/RecruiterNavbar';
@@ -16,9 +16,35 @@ import {
   ShieldCheck,
   CalendarClock,
   Calendar,
+  MapPin,
   Edit2,
   X,
 } from 'lucide-react';
+
+function InfoInput({ value, onChange, placeholder }) {
+  const inputRef = useRef(null);
+
+  return (
+    <input
+      ref={inputRef}
+      value={value ?? ''}
+      onChange={(e) => {
+        onChange(e.target.value);
+        requestAnimationFrame(() => {
+          const node = inputRef.current;
+          if (!node) return;
+          node.focus();
+          const end = node.value.length;
+          node.setSelectionRange(end, end);
+        });
+      }}
+      placeholder={placeholder}
+      autoComplete="off"
+      spellCheck={false}
+      className="w-full min-w-0 border-b border-dashed border-slate-300 bg-transparent pb-0.5 text-sm font-medium text-slate-900 outline-none focus:border-[#C75560]"
+    />
+  );
+}
 
 export default function RecruiterCompanyProfile() {
   const [profile, setProfile] = useState(null);
@@ -35,6 +61,10 @@ export default function RecruiterCompanyProfile() {
   const [companyCin, setCompanyCin] = useState('');
   const [companyDetails, setCompanyDetails] = useState('');
   const [companyLogoUrl, setCompanyLogoUrl] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [companySize, setCompanySize] = useState('');
+  const [companyType, setCompanyType] = useState('');
+  const [location, setLocation] = useState('');
 
   useEffect(() => {
     async function fetchProfile() {
@@ -60,6 +90,10 @@ export default function RecruiterCompanyProfile() {
     setCompanyCin(data?.companyCin || '');
     setCompanyDetails(data?.companyDetails || '');
     setCompanyLogoUrl(data?.companyLogoUrl || '');
+    setIndustry(data?.industry || '');
+    setCompanySize(data?.companySize || '');
+    setCompanyType(data?.companyType || '');
+    setLocation(data?.location || '');
   }
 
   async function handleSave() {
@@ -75,6 +109,10 @@ export default function RecruiterCompanyProfile() {
         companyCin: companyCin.trim(),
         companyDetails: companyDetails.trim(),
         companyLogoUrl: companyLogoUrl.trim(),
+        industry: industry.trim(),
+        companySize: companySize.trim(),
+        companyType: companyType.trim(),
+        location: location.trim(),
       };
       const { data } = await axiosInstance.put('/recruiter/me/profile', payload);
       setProfile(data);
@@ -113,22 +151,9 @@ export default function RecruiterCompanyProfile() {
   const completionPercentage = Math.min(
     100,
     Math.round(
-      ([companyName, companyWebsite, companyEmail, companyDetails, companyGst, companyCin, companyLogoUrl].filter(Boolean).length / 7) * 100
+      ([companyName, companyWebsite, companyEmail, companyDetails, companyGst, companyCin, companyLogoUrl, industry, companySize, companyType, location].filter(Boolean).length / 11) * 100
     )
   );
-
-  // Inline input used inside the info-row grid while in edit mode — keeps the
-  // icon-led row shape from view mode so the layout doesn't jump on toggle.
-  function InfoInput({ value, onChange, placeholder }) {
-    return (
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full min-w-0 border-b border-dashed border-slate-300 bg-transparent pb-0.5 text-sm font-medium text-slate-900 outline-none focus:border-[#C75560]"
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#FFF8F2] text-[#1D181A]" style={{ fontFamily: FONT_DISPLAY }}>
@@ -279,6 +304,42 @@ export default function RecruiterCompanyProfile() {
                     <InfoInput value={companyCin} onChange={setCompanyCin} placeholder="CIN" />
                   ) : (
                     <span className={companyCin ? 'font-medium text-slate-900' : 'text-slate-400'}>{companyCin || 'CIN not provided'}</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2.5 text-sm">
+                  <Building2 size={16} className="shrink-0 text-slate-400" />
+                  {editMode ? (
+                    <InfoInput value={industry} onChange={setIndustry} placeholder="Industry" />
+                  ) : (
+                    <span className={industry ? 'font-medium text-slate-900' : 'text-slate-400'}>{industry || 'Industry not provided'}</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2.5 text-sm">
+                  <Landmark size={16} className="shrink-0 text-slate-400" />
+                  {editMode ? (
+                    <InfoInput value={companySize} onChange={setCompanySize} placeholder="Company size" />
+                  ) : (
+                    <span className={companySize ? 'font-medium text-slate-900' : 'text-slate-400'}>{companySize || 'Size not provided'}</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2.5 text-sm">
+                  <ShieldCheck size={16} className="shrink-0 text-slate-400" />
+                  {editMode ? (
+                    <InfoInput value={companyType} onChange={setCompanyType} placeholder="Company type" />
+                  ) : (
+                    <span className={companyType ? 'font-medium text-slate-900' : 'text-slate-400'}>{companyType || 'Type not provided'}</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2.5 text-sm">
+                  <MapPin size={16} className="shrink-0 text-slate-400" />
+                  {editMode ? (
+                    <InfoInput value={location} onChange={setLocation} placeholder="Location" />
+                  ) : (
+                    <span className={location ? 'font-medium text-slate-900' : 'text-slate-400'}>{location || 'Location not provided'}</span>
                   )}
                 </div>
 

@@ -8,8 +8,8 @@ function generateUserToken({ id, role }) {
 }
 
 // For admins - separate secret, separate (shorter) expiry, explicit type flag
-function generateAdminToken({ id, role }) {
-  return jwt.sign({ id, role, type: 'admin' }, process.env.ADMIN_JWT_SECRET, {
+function generateAdminToken({ id, role, sessionId }) {
+  return jwt.sign({ id, role, sid: sessionId, type: 'admin' }, process.env.ADMIN_JWT_SECRET, {
     expiresIn: process.env.ADMIN_JWT_EXPIRES_IN || '30m',
   });
 }

@@ -18,6 +18,9 @@ const pendingCandidateRegistrationSchema = new mongoose.Schema({
   experienceCertificateUrl: { type: String },
 
   amount: { type: Number, required: true },
+  baseAmount: { type: Number },
+  gstAmount: { type: Number, default: 0 },
+  gstRate: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   expiresAt: { type: Date, required: true, index: { expires: 0 } }, // TTL: Mongo deletes once expiresAt is in the past
 });

@@ -313,7 +313,7 @@ export default function CandidateRegisterForm({ onSwitchToLogin, onSuccess }) {
         name: 'Job Portal',
         // "J" avatar ki jagah apna logo dikhane ke liye yaha ek public HTTPS image URL daalo:
         // image: 'https://yourdomain.com/logo.png',
-        description: 'Candidate registration fee (Rs. 9/year)',
+        description: 'Candidate registration fee (base amount plus applicable GST)',
         prefill: {
           name: order.name,
           email: order.email,
@@ -404,7 +404,7 @@ export default function CandidateRegisterForm({ onSwitchToLogin, onSuccess }) {
         Candidate Sign Up
       </h2>
       <p className="mb-5 text-[13px] text-[#80576A]">
-        Registration fee: Rs. 9/year — pay via UPI, QR code, debit card, or
+        Registration fee: base amount plus applicable GST — pay via UPI, QR code, debit card, or
         wallet. Your account is created only after payment succeeds.
       </p>
 
@@ -701,7 +701,7 @@ export default function CandidateRegisterForm({ onSwitchToLogin, onSuccess }) {
             ? "Waiting for payment…"
             : submitting
               ? "Starting payment…"
-              : "Continue to Payment (Rs. 9)"}
+              : "Continue to Payment"}
       </button>
 
       <p className="mt-3 text-center text-[12.5px] text-[#80576A]">

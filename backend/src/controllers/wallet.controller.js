@@ -2,10 +2,11 @@ const Wallet = require('../models/Wallet');
 const Payment = require('../models/Payment');
 const Recruiter = require('../models/Recruiter');
 const Candidate = require('../models/Candidate');
-const { razorpayInstance, PRICING } = require('../config/razorpay');
+const { razorpayInstance } = require('../config/razorpay');
+const { getPaymentPricing } = require('../services/platformSettings.service');
+const { calculateCharge } = require('../services/tax.service');
 const crypto = require('crypto');
-
-const RESUME_DOWNLOAD_FEE = Number(PRICING.RESUME_DOWNLOAD || 9);
+const { createAdminNotification } = require('../services/adminNotification.service');
 
 async function applyResumeDownloadCharge(recruiterId, { candidateId, candidateName = 'Candidate', jobTitle = 'Resume Download' } = {}) {
   if (!candidateId) {
@@ -15,13 +16,19 @@ async function applyResumeDownloadCharge(recruiterId, { candidateId, candidateNa
   }
 
   const wallet = await getOrCreateWallet(recruiterId);
+  const pricing = await getPaymentPricing();
+  const charge = calculateCharge(pricing.RESUME_DOWNLOAD, {
+    gstEnabled: pricing.GST_ENABLED,
+    gstRate: pricing.GST_RATE,
+  });
+  const resumeDownloadFee = charge.totalAmount;
 
-  if (wallet.balance < RESUME_DOWNLOAD_FEE) {
+  if (wallet.balance < resumeDownloadFee) {
     const error = new Error('Insufficient wallet balance');
     error.status = 400;
     error.details = {
       availableBalance: wallet.balance,
-      requiredAmount: RESUME_DOWNLOAD_FEE,
+      requiredAmount: resumeDownloadFee,
     };
     throw error;
   }
@@ -30,8 +37,11 @@ async function applyResumeDownloadCharge(recruiterId, { candidateId, candidateNa
     type: 'resume_download',
     description: 'Resume Download',
     reference: `RES-${Math.floor(Math.random() * 10000)}`,
-    amount: -RESUME_DOWNLOAD_FEE,
-    balanceAfter: wallet.balance - RESUME_DOWNLOAD_FEE,
+    amount: -resumeDownloadFee,
+    baseAmount: -charge.baseAmount,
+    gstAmount: -charge.gstAmount,
+    gstRate: charge.gstRate,
+    balanceAfter: wallet.balance - resumeDownloadFee,
     status: 'success',
     relatedResumeDownload: {
       candidate: candidateId,
@@ -41,20 +51,30 @@ async function applyResumeDownloadCharge(recruiterId, { candidateId, candidateNa
     createdAt: new Date(),
   };
 
-  wallet.balance -= RESUME_DOWNLOAD_FEE;
-  wallet.totalSpent += RESUME_DOWNLOAD_FEE;
+  wallet.balance -= resumeDownloadFee;
+  wallet.totalSpent += resumeDownloadFee;
   wallet.resumesDownloaded += 1;
   wallet.transactions.push(transaction);
   const walletTransaction = wallet.transactions[wallet.transactions.length - 1];
 
   await wallet.save();
 
+  if (wallet.balance <= resumeDownloadFee * 2) {
+    await createAdminNotification({
+      key: 'lowWalletAlert',
+      title: 'Recruiter wallet balance low',
+      message: `A recruiter wallet has a low balance of ₹${wallet.balance}.`,
+      relatedId: wallet._id,
+    });
+  }
+
   const payment = await Payment.create({
     userType: 'recruiter',
     userId: recruiterId,
     userTypeRef: 'Recruiter',
     purpose: 'resume_download',
-    amount: RESUME_DOWNLOAD_FEE,
+    amount: resumeDownloadFee,
+    ...charge,
     status: 'success',
     relatedResumeDownload: { candidate: candidateId },
   });
@@ -91,12 +111,21 @@ exports.getWalletSummary = async (req, res) => {
   try {
     const recruiterId = req.user.id;
     const wallet = await getOrCreateWallet(recruiterId);
+    const pricing = await getPaymentPricing();
+    const resumeCharge = calculateCharge(pricing.RESUME_DOWNLOAD, {
+      gstEnabled: pricing.GST_ENABLED,
+      gstRate: pricing.GST_RATE,
+    });
 
     res.json({
       balance: wallet.balance,
       totalAdded: wallet.totalAdded,
       totalSpent: wallet.totalSpent,
       resumesDownloaded: wallet.resumesDownloaded,
+      resumeDownloadFee: resumeCharge.totalAmount,
+      resumeDownloadBaseAmount: resumeCharge.baseAmount,
+      resumeDownloadGstAmount: resumeCharge.gstAmount,
+      resumeDownloadGstRate: resumeCharge.gstRate,
     });
   } catch (err) {
     console.error('Failed to get wallet summary:', err);

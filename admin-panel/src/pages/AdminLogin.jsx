@@ -17,6 +17,9 @@ export default function AdminLoginThreeD() {
   const [forgotNote, setForgotNote] = useState(false);
   const [status, setStatus] = useState('idle'); // idle | submitting | success | error
   const [formVersion, setFormVersion] = useState(0);
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [challengeToken, setChallengeToken] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   const navigate = useNavigate();
   const { login } = useAdminAuth();
 
@@ -26,10 +29,28 @@ export default function AdminLoginThreeD() {
     setStatus('submitting');
 
     try {
+      if (twoFactorRequired) {
+        const { data } = await adminAxiosInstance.post('/auth/two-factor/verify', {
+          challengeToken,
+          code: verificationCode,
+        });
+        login(data);
+        setStatus('success');
+        navigate('/');
+        return;
+      }
+
       const { data } = await adminAxiosInstance.post('/auth/login', {
         email,
         password,
       });
+
+      if (data.requiresTwoFactor) {
+        setChallengeToken(data.challengeToken);
+        setTwoFactorRequired(true);
+        setStatus('idle');
+        return;
+      }
 
       login(data);
       setStatus('success');
@@ -50,6 +71,7 @@ export default function AdminLoginThreeD() {
       setError(errorMessage);
       console.error('Admin login failed:', err);
       setPassword('');
+      if (twoFactorRequired) setVerificationCode('');
       setFormVersion((version) => version + 1);
       setTimeout(() => setStatus('idle'), ERROR_ANIM_MS);
     }
@@ -119,7 +141,7 @@ export default function AdminLoginThreeD() {
                     placeholder="Enter your Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    disabled={isBusy}
+                    disabled={isBusy || twoFactorRequired}
                     required
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E5E7EB] bg-[#FFF9F5] text-[14.5px] text-[#1D181A] outline-none transition-colors focus:border-[#C75560] disabled:bg-[#F7F8FA] disabled:opacity-70"
                   />
@@ -141,7 +163,7 @@ export default function AdminLoginThreeD() {
                     placeholder="Enter your Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    disabled={isBusy}
+                    disabled={isBusy || twoFactorRequired}
                     required
                     className="w-full pl-10 pr-11 py-3 rounded-xl border border-[#E5E7EB] bg-[#FFF9F5] text-[14.5px] text-[#1D181A] outline-none transition-colors focus:border-[#C75560] disabled:bg-[#F7F8FA] disabled:opacity-70"
                   />
@@ -155,6 +177,27 @@ export default function AdminLoginThreeD() {
                   </button>
                 </div>
               </motion.div>
+
+              {twoFactorRequired && (
+                <motion.div variants={fadeUp}>
+                  <label htmlFor="admin-otp" className="block mb-1.5 text-[13px] font-semibold text-[#374151]">
+                    Verification code
+                  </label>
+                  <input
+                    id="admin-otp"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="Enter 6-digit code"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                    disabled={isBusy}
+                    className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] bg-[#FFF9F5] text-[14.5px] tracking-[0.3em] text-[#1D181A] outline-none focus:border-[#C75560]"
+                  />
+                  <p className="mt-1.5 text-[11px] text-[#80576A]">A verification code was sent to your admin email.</p>
+                </motion.div>
+              )}
 
               <motion.div variants={fadeUp} className="flex items-center justify-between pt-0.5">
                 <label className="flex items-center gap-2 text-[13px] text-[#374151] cursor-pointer select-none">
@@ -204,7 +247,7 @@ export default function AdminLoginThreeD() {
                     : 'border-[#C75560] text-[#C75560] hover:bg-[#C75560] hover:text-white'
                 }`}
               >
-                {status === 'submitting' ? 'Checking…' : status === 'success' ? 'Welcome back' : 'Login'}
+                {status === 'submitting' ? 'Checking…' : status === 'success' ? 'Welcome back' : twoFactorRequired ? 'Verify code' : 'Login'}
               </button>
             </form>
 

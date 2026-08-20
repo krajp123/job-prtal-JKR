@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
 import { BriefcaseBusiness, LayoutDashboard, PlusCircle, UsersRound, Wallet } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import RecruiterProfileMenu from './RecruiterProfileMenu';
 import { FONT_DISPLAY } from '../theme';
+import axiosInstance from '../api/axiosInstance';
+import { fetchPlatformBranding, getCachedPlatformBranding } from '../api/platformBranding';
 
 const links = [
     { to: '/recruiter/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -20,15 +23,39 @@ function navClass(isActive) {
 
 export default function RecruiterNavbar() {
     const navigate = useNavigate();
+    const [platformBranding, setPlatformBranding] = useState(getCachedPlatformBranding);
+
+    useEffect(() => {
+        let active = true;
+        fetchPlatformBranding()
+            .then((branding) => {
+                if (active) setPlatformBranding(branding);
+            })
+            .catch(() => {
+                // Keep the last cached branding when the endpoint is unavailable.
+            });
+        return () => { active = false; };
+    }, []);
+
+    const brandName = platformBranding.siteName;
 
     return (
         <header className="sticky top-0 z-30 overflow-visible border-b border-[#EBC2AE] bg-[#FFFDFC]/95 backdrop-blur-md">
             <div className="mx-auto flex w-full max-w-6xl items-center gap-4 overflow-visible px-5 py-3 sm:px-8">
-                <Link to="/recruiter/dashboard" className="flex shrink-0 flex-col" aria-label="Career Route Portal recruiter dashboard">
-                    <span className="text-[15px] font-bold tracking-tight text-[#1D181A]" style={{ fontFamily: FONT_DISPLAY }}>
-                        Career Route Portal
+                <Link to="/recruiter/dashboard" className="flex min-w-[140px] shrink-0 items-center gap-2" aria-label={`${brandName || 'Platform'} recruiter dashboard`}>
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl text-xs font-extrabold shadow-sm ${platformBranding.siteName || platformBranding.logo ? 'bg-gradient-to-br from-[#C75560] to-[#E7A24B] text-white' : 'animate-pulse bg-[#F3E5DE]'}`}>
+                        {platformBranding.logo ? (
+                            <img src={platformBranding.logo} alt={`${brandName} logo`} className="h-full w-full object-cover" />
+                        ) : (
+                            brandName ? brandName.slice(0, 2).toUpperCase() : null
+                        )}
                     </span>
-                    <span className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] text-[#80576A] sm:block">Recruiter workspace</span>
+                    <span className="flex flex-col">
+                        <span className="text-[15px] font-bold tracking-tight text-[#1D181A]" style={{ fontFamily: FONT_DISPLAY }}>
+                            {brandName || <span className="block h-3 w-24 animate-pulse bg-[#F3E5DE]" aria-label="Loading platform name" />}
+                        </span>
+                        <span className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] text-[#80576A] sm:block">Recruiter workspace</span>
+                    </span>
                 </Link>
 
                 <nav className="hidden items-center gap-1 md:flex" aria-label="Recruiter primary navigation">

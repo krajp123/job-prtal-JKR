@@ -3,6 +3,9 @@ const { hashPassword, comparePassword } = require('../../utils/hashPassword');
 const { generateAdminToken } = require('../../utils/generateToken');
 const { logAdminAction } = require('../../services/audit.service');
 const { cloudinary, isCloudinaryConfigured } = require('../../config/cloudinary');
+const { sendChallenge, verifyChallenge } = require('../../services/adminTwoFactor.service');
+const { createAdminSession } = require('../../services/adminSession.service');
+const AdminSession = require('../../models/AdminSession');
 
 // There is deliberately NO public "admin register" route.
 // Admin accounts are created manually (via a seed script or directly by a
@@ -41,7 +44,17 @@ exports.login = async (req, res) => {
 
     await logAdminAction({ adminId: admin._id, action: 'ADMIN_LOGIN', targetType: 'Admin', targetId: admin._id, ip: req.ip });
 
-    const token = generateAdminToken({ id: admin._id, role: admin.role });
+    if (admin.twoFactorEnabled) {
+      const challengeToken = await sendChallenge(admin);
+      return res.status(202).json({
+        requiresTwoFactor: true,
+        challengeToken,
+        message: 'Verification code sent to your admin email',
+      });
+    }
+
+    const session = await createAdminSession(req, admin._id);
+    const token = generateAdminToken({ id: admin._id, role: admin.role, sessionId: session.tokenId });
 
     res.json({
       token,
@@ -49,7 +62,62 @@ exports.login = async (req, res) => {
       name: admin.name,
       role: admin.role,
       profilePictureUrl: admin.profilePictureUrl || null,
+      sessionId: session.tokenId,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.verifyTwoFactor = async (req, res) => {
+  try {
+    const result = verifyChallenge(req.body.challengeToken, req.body.code);
+    if (!result.valid) return res.status(401).json({ error: result.error });
+
+    const admin = await Admin.findById(result.adminId);
+    if (!admin || !admin.isActive) return res.status(401).json({ error: 'Admin account is inactive' });
+
+    const session = await createAdminSession(req, admin._id);
+    const token = generateAdminToken({ id: admin._id, role: admin.role, sessionId: session.tokenId });
+    await logAdminAction({ adminId: admin._id, action: 'ADMIN_2FA_LOGIN', targetType: 'Admin', targetId: admin._id, ip: req.ip });
+    res.json({
+      token,
+      id: admin._id,
+      name: admin.name,
+      role: admin.role,
+      profilePictureUrl: admin.profilePictureUrl || null,
+      sessionId: session.tokenId,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.listSessions = async (req, res) => {
+  try {
+    const sessions = await AdminSession.find({ admin: req.admin.id, expiresAt: { $gt: new Date() } })
+      .sort({ lastActiveAt: -1 })
+      .select('device ip lastActiveAt createdAt expiresAt tokenId')
+      .lean();
+    res.json({ sessions: sessions.map((session) => ({
+      id: session.tokenId,
+      device: session.device,
+      location: session.ip,
+      lastActive: session.lastActiveAt,
+      createdAt: session.createdAt,
+      expiresAt: session.expiresAt,
+      current: session.tokenId === req.admin.sid,
+    })) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.revokeSession = async (req, res) => {
+  try {
+    const session = await AdminSession.findOneAndDelete({ tokenId: req.params.sessionId, admin: req.admin.id });
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    res.json({ message: 'Session revoked' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -102,6 +170,32 @@ exports.changePassword = async (req, res) => {
     await admin.save();
     await logAdminAction({ adminId: admin._id, action: 'CHANGE_ADMIN_PASSWORD', targetType: 'Admin', targetId: admin._id, ip: req.ip });
     res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateTwoFactor = async (req, res) => {
+  try {
+    if (typeof req.body.enabled !== 'boolean') {
+      return res.status(400).json({ error: 'Two-factor setting must be a boolean' });
+    }
+
+    const admin = await Admin.findByIdAndUpdate(
+      req.admin.id,
+      { $set: { twoFactorEnabled: req.body.enabled } },
+      { new: true }
+    ).select('twoFactorEnabled');
+    if (!admin) return res.status(404).json({ error: 'Admin account not found' });
+
+    await logAdminAction({
+      adminId: req.admin.id,
+      action: req.body.enabled ? 'ENABLE_ADMIN_2FA' : 'DISABLE_ADMIN_2FA',
+      targetType: 'Admin',
+      targetId: req.admin.id,
+      ip: req.ip,
+    });
+    res.json({ message: 'Two-factor setting updated', twoFactorEnabled: admin.twoFactorEnabled });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

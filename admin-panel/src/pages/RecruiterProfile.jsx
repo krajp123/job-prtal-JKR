@@ -157,8 +157,9 @@ const TABS = [
 function GlobalStyle() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
       .rc-root { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; letter-spacing: -0.011em; }
+      .rc-identity { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.012em; }
       .rc-serif { font-family: 'Fraunces', ui-serif, Georgia, serif; font-feature-settings: 'ss01' 1; }
       .rc-mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
       .rc-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
@@ -1018,7 +1019,7 @@ export default function RecruiterProfile() {
         <aside className="lg:w-[280px] shrink-0">
           <div className="lg:sticky lg:top-4 space-y-3">
             {/* Identity card */}
-            <div className="rc-rail-glow rounded-xl border border-[#F0E1D6] bg-white overflow-hidden">
+            <div className="rc-rail-glow rc-identity rounded-xl border border-[#F0E1D6] bg-white overflow-hidden">
               <div className="p-3.5">
                 <div className={`h-12 w-12 rounded-full flex items-center justify-center shadow-md overflow-hidden ${recruiter.profilePictureUrl ? 'bg-gray-100' : 'bg-gradient-to-br from-[#C75560] to-[#D9654A] shadow-[#C75560]/20'}`}>
                   {recruiter.profilePictureUrl ? (
@@ -1042,9 +1043,12 @@ export default function RecruiterProfile() {
                     </span>
                   )}
                 </div>
-                <h1 className="rc-serif text-[16px] font-semibold text-[#1D181A] leading-tight mt-2">{recruiter.fullName}</h1>
-                <p className="text-[11px] text-[#80576A] mt-0.5">
-                  {recruiter.designation ? `${recruiter.designation} · ` : ''}{recruiter.companyName}
+                <h1 className="text-[17px] font-extrabold tracking-tight text-[#1D181A] leading-tight mt-2">{recruiter.fullName}</h1>
+                <p className="text-[11px] font-medium text-[#80576A] mt-1">
+                  {recruiter.designation || 'Designation not provided'}
+                </p>
+                <p className="text-[11px] font-semibold text-[#A08A93] mt-0.5">
+                  {recruiter.companyName || 'Company not provided'}
                 </p>
 
                 <div className="flex flex-wrap gap-1.5 mt-3">
@@ -1055,15 +1059,15 @@ export default function RecruiterProfile() {
                 <div className="mt-3 pt-3 border-t border-[#F3E9E3] space-y-1.5 text-[11px]">
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-[#A08A93]"><Hash size={12} /> ID</span>
-                    <span className="rc-mono text-[#1D181A] font-medium flex items-center gap-1.5">{recruiter.uniqueId}<CopyField value={recruiter.uniqueId} /></span>
+                    <span className="text-[#1D181A] font-semibold flex items-center gap-1.5">{recruiter.uniqueId}<CopyField value={recruiter.uniqueId} /></span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-[#A08A93]"><Mail size={12} /> Email</span>
-                    <span className="rc-mono text-[#1D181A] font-medium flex items-center gap-1.5 truncate max-w-[150px]">{recruiter.email}<CopyField value={recruiter.email} /></span>
+                    <span className="text-[#1D181A] font-semibold flex items-center gap-1.5 truncate max-w-[150px]">{recruiter.email}<CopyField value={recruiter.email} /></span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-[#A08A93]"><Phone size={12} /> Phone</span>
-                    <span className="rc-mono text-[#1D181A] font-medium flex items-center gap-1.5">{recruiter.phone}<CopyField value={recruiter.phone} /></span>
+                    <span className="text-[#1D181A] font-semibold flex items-center gap-1.5">{recruiter.phone}<CopyField value={recruiter.phone} /></span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-[#A08A93]"><Calendar size={12} /> Joined</span>
@@ -1153,7 +1157,7 @@ export default function RecruiterProfile() {
                     <MapPin size={14} className="text-[#C7891F] mt-0.5 shrink-0" />
                     <div>
                       <p className="text-[#A08A93] text-[10px] uppercase font-bold tracking-wide">Location</p>
-                      <p className="text-[#1D181A] font-semibold text-[12px] mt-0.5 truncate">{recruiter.address || 'N/A'}</p>
+                      <p className="text-[#1D181A] font-semibold text-[12px] mt-0.5 truncate">{recruiter.location || 'N/A'}</p>
                     </div>
                   </div>
 
@@ -1162,7 +1166,7 @@ export default function RecruiterProfile() {
                     <Users size={14} className="text-[#C7891F] mt-0.5 shrink-0" />
                     <div>
                       <p className="text-[#A08A93] text-[10px] uppercase font-bold tracking-wide">Company Type</p>
-                      <p className="text-[#1D181A] font-semibold text-[12px] mt-0.5">{recruiter.companySize || 'N/A'}</p>
+                      <p className="text-[#1D181A] font-semibold text-[12px] mt-0.5">{recruiter.companyType || recruiter.companySize || 'N/A'}</p>
                     </div>
                   </div>
 
@@ -1172,8 +1176,8 @@ export default function RecruiterProfile() {
                     <div>
                       <p className="text-[#A08A93] text-[10px] uppercase font-bold tracking-wide">GST Number</p>
                       <p className="rc-mono text-[#1D181A] font-semibold text-[12px] mt-0.5 flex items-center gap-1.5">
-                        {recruiter.gstNumber || 'N/A'} 
-                        {recruiter.gstNumber && <CopyField value={recruiter.gstNumber} />}
+                        {recruiter.companyGst || 'N/A'} 
+                        {recruiter.companyGst && <CopyField value={recruiter.companyGst} />}
                       </p>
                     </div>
                   </div>

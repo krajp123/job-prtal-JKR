@@ -5,6 +5,7 @@ const JobReopenRequest = require('../models/JobReopenRequest');
 const pdfParse = require('pdf-parse');
 const sanitizeHtml = require('sanitize-html');
 const { sendEmail } = require('../services/email.service');
+const { getPlatformSettings } = require('../services/platformSettings.service');
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -116,6 +117,7 @@ function collectJobKeywords(job) {
 exports.create = async (req, res) => {
   try {
     const { title, description, location, salary, skillsRequired, experienceLevel, descriptionSections } = req.body;
+    const settings = await getPlatformSettings();
 
     const job = await Job.create({
       title,
@@ -126,6 +128,7 @@ exports.create = async (req, res) => {
       skillsRequired,
       experienceLevel,
       postedBy: req.user.id,
+      status: settings.autoApproveJobs ? 'open' : 'draft',
     });
 
     res.status(201).json(job);

@@ -5,11 +5,12 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Bot, HelpCircle, LogOut, Menu, MessageCircle, Settings, UserRound, X, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../api/axiosInstance';
+import { fetchPlatformBranding, getCachedPlatformBranding } from '../api/platformBranding';
 import { FONT_DISPLAY, MAROON } from '../theme';
 import NotificationCenter from './NotificationCenter';
 import Avatar from './Avatar';
 
-const NAV_FRAME = 'max-w-[760px]';
+const NAV_FRAME = 'max-w-[960px]';
 
 const panelVariants = {
     open: { x: 0, transition: { type: 'tween', duration: 0.25 } },
@@ -34,7 +35,23 @@ export default function CandidateNavbar({ profile, onOpenAccountMenu }) {
     const jobsDropdownRef = useRef(null);
 
     const [resolvedProfile, setResolvedProfile] = useState(profile || null);
+    const [platformBranding, setPlatformBranding] = useState(getCachedPlatformBranding);
     const profileFetchAttempted = useRef(false);
+
+    useEffect(() => {
+        let mounted = true;
+        fetchPlatformBranding()
+            .then((branding) => {
+                if (mounted) setPlatformBranding(branding);
+            })
+            .catch(() => {
+                // Keep the last cached branding when the endpoint is unavailable.
+            });
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     useEffect(() => {
         if (profile) {
@@ -97,9 +114,22 @@ export default function CandidateNavbar({ profile, onOpenAccountMenu }) {
     return (
         <header className="portal-navbar-shell candidate-navbar-shell relative z-50">
             <div className={`portal-navbar candidate-page-nav mx-auto flex items-center gap-3 ${NAV_FRAME}`}>
-                <Link to="/candidate/dashboard" className="flex shrink-0" aria-label="Career Route Portal dashboard">
-                    <span className="text-[15px] font-bold tracking-tight text-[#1D181A]" style={{ fontFamily: FONT_DISPLAY }}>
-                        Career Route Portal
+                <Link to="/candidate/dashboard" className="candidate-brand-lockup flex min-w-0 shrink-0 items-center gap-2.5" aria-label={`${platformBranding.siteName} dashboard`}>
+                    {platformBranding.logo ? (
+                        <img
+                            src={platformBranding.logo}
+                            alt={`${platformBranding.siteName} logo`}
+                            className="candidate-brand-logo h-9 w-9 shrink-0 rounded-full object-contain"
+                        />
+                    ) : platformBranding.siteName ? (
+                        <span className="candidate-brand-logo flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#C75560] bg-[#1D181A] text-[13px] font-bold text-[#F7C56B]">
+                            {platformBranding.siteName.slice(0, 1).toUpperCase()}
+                        </span>
+                    ) : (
+                        <span className="candidate-brand-logo block h-9 w-9 shrink-0 animate-pulse rounded-full bg-[#F3E5DE]" aria-label="Loading platform logo" />
+                    )}
+                    <span className="truncate text-[16px] font-bold tracking-[-0.02em] text-[#1D181A]" style={{ fontFamily: FONT_DISPLAY }}>
+                        {platformBranding.siteName || <span className="inline-block h-3 w-28 animate-pulse bg-[#F3E5DE] align-middle" aria-label="Loading platform name" />}
                     </span>
                 </Link>
 

@@ -10,6 +10,33 @@ button:disabled {
     cursor: not-allowed;
 }
 
+@keyframes invoice-overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes invoice-pop-in {
+    from { opacity: 0; transform: translateY(18px) scale(0.94); }
+    70% { opacity: 1; transform: translateY(-2px) scale(1.01); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.invoice-overlay-in {
+    animation: invoice-overlay-in 180ms ease-out both;
+}
+
+.invoice-pop-in {
+    transform-origin: center;
+    animation: invoice-pop-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .invoice-overlay-in,
+    .invoice-pop-in {
+        animation: none;
+    }
+}
+
 html,
 body,
 #root {
@@ -179,6 +206,19 @@ body {
     margin: 0 auto;
 }
 
+.candidate-brand-lockup {
+    min-width: 9.5rem;
+}
+
+.candidate-brand-lockup:hover .candidate-brand-logo {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 16px -12px rgba(29, 24, 26, 0.9);
+}
+
+.candidate-brand-logo {
+    transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
 .signed-in-nav-logout {
     min-width: 5.8rem;
     justify-content: center;
@@ -227,7 +267,7 @@ body {
 }
 
 .candidate-page-mobile-links {
-    width: min(100% - 2.5rem, 760px);
+    width: min(100% - 2.5rem, 960px);
     margin-top: 0.45rem;
     padding: 0.35rem 0.55rem;
     border: 1px solid #2b2326;

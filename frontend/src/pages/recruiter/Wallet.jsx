@@ -630,6 +630,13 @@ function TransactionDetailsModal({ txnId, onClose }) {
                 <Row label="Job" value={txn.jobTitle} />
                 <Row label="Previous Balance" value={formatMoney(txn.balanceAfter - txn.amount)} />
                 <Row label="Current Balance" value={formatMoney(txn.balanceAfter)} />
+                {txn.baseAmount !== undefined && (
+                  <>
+                    <Row label="Base Amount" value={formatMoney(Math.abs(txn.baseAmount))} />
+                    <Row label={`GST (${txn.gstRate || 0}%)`} value={formatMoney(Math.abs(txn.gstAmount || 0))} />
+                    <Row label="Total Amount" value={formatMoney(Math.abs(txn.amount))} />
+                  </>
+                )}
               </>
             )}
 

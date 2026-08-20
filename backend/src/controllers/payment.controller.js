@@ -1,8 +1,10 @@
 const crypto = require('crypto');
-const { razorpayInstance, PRICING } = require('../config/razorpay');
+const { razorpayInstance } = require('../config/razorpay');
+const { getPaymentPricing } = require('../services/platformSettings.service');
 const Payment = require('../models/Payment');
 const Candidate = require('../models/Candidate');
 const Recruiter = require('../models/Recruiter');
+const { calculateCharge } = require('../services/tax.service');
 
 // POST /api/payments/create-order
 // body: { userType: 'candidate'|'recruiter', purpose: 'registration'|'renewal'|'resume_download', targetCandidateId? }
@@ -10,16 +12,19 @@ exports.createOrder = async (req, res) => {
   try {
     const { purpose, targetCandidateId } = req.body;
     const userType = req.user.role; // 'candidate' or 'recruiter'
+    const pricing = await getPaymentPricing();
 
-    let amount;
+    let baseAmount;
     if (purpose === 'registration' || purpose === 'renewal') {
-      amount = userType === 'candidate' ? PRICING.CANDIDATE_REGISTRATION : PRICING.RECRUITER_REGISTRATION;
+      baseAmount = userType === 'candidate' ? pricing.CANDIDATE_REGISTRATION : pricing.RECRUITER_REGISTRATION;
     } else if (purpose === 'resume_download') {
-      amount = PRICING.RESUME_DOWNLOAD;
+      baseAmount = pricing.RESUME_DOWNLOAD;
     } else {
       return res.status(400).json({ error: 'Invalid payment purpose' });
     }
 
+    const charge = calculateCharge(baseAmount, { gstEnabled: pricing.GST_ENABLED, gstRate: pricing.GST_RATE });
+    const amount = charge.totalAmount;
     const devMode = !razorpayInstance && process.env.NODE_ENV !== 'production';
 
     let order;
@@ -39,6 +44,7 @@ exports.createOrder = async (req, res) => {
       userTypeRef: userType === 'candidate' ? 'Candidate' : 'Recruiter',
       purpose,
       amount,
+      ...charge,
       razorpayOrderId: order.id,
       status: 'pending',
       relatedResumeDownload: purpose === 'resume_download' ? { candidate: targetCandidateId } : undefined,

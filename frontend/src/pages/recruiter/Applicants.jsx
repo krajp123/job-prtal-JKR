@@ -202,7 +202,11 @@ function initials(name) {
 }
 
 function formatMoney(amount) {
-  return `₹${Number(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  const value = Number(amount || 0);
+  return `₹${value.toLocaleString('en-IN', {
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function StatusChip({ statusKey, className = '' }) {
@@ -405,6 +409,9 @@ export default function Applicants() {
     email: '',
     walletBalance: 0,
     amount: RESUME_DOWNLOAD_FEE,
+    baseAmount: RESUME_DOWNLOAD_FEE,
+    gstAmount: 0,
+    gstRate: 0,
   });
   const [resumePaying, setResumePaying] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -640,7 +647,10 @@ export default function Applicants() {
         companyName: recruiterProfile?.companyName || 'Your company',
         email: recruiterProfile?.email || '',
         walletBalance: Number(walletSummary?.balance || 0),
-        amount: RESUME_DOWNLOAD_FEE,
+        amount: Number(walletSummary?.resumeDownloadFee || RESUME_DOWNLOAD_FEE),
+        baseAmount: Number(walletSummary?.resumeDownloadBaseAmount || RESUME_DOWNLOAD_FEE),
+        gstAmount: Number(walletSummary?.resumeDownloadGstAmount || 0),
+        gstRate: Number(walletSummary?.resumeDownloadGstRate || 0),
       });
       setResumePaymentCandidate(candidateApplication);
       setResumePaymentModalOpen(true);
@@ -690,7 +700,7 @@ export default function Applicants() {
 
       setResumePaymentModalOpen(false);
       setResumePaymentCandidate(null);
-      setResumePaymentDetails({ recruiterName: '', companyName: '', email: '', walletBalance: 0, amount: RESUME_DOWNLOAD_FEE });
+      setResumePaymentDetails({ recruiterName: '', companyName: '', email: '', walletBalance: 0, amount: RESUME_DOWNLOAD_FEE, baseAmount: RESUME_DOWNLOAD_FEE, gstAmount: 0, gstRate: 0 });
       showToast('Resume downloaded successfully. Wallet charged successfully.');
     } catch (err) {
       console.error('Resume download flow failed:', err);
@@ -1249,12 +1259,13 @@ export default function Applicants() {
       )}
 
       {resumePaymentModalOpen && resumePaymentCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6 sm:px-6">
-          <div className="w-full max-w-md rounded-[22px] bg-[#FFF9F5] p-5 shadow-2xl ring-1 ring-black/10">
+        <div className="invoice-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6 sm:px-6">
+          <div className="invoice-pop-in w-full max-w-lg rounded-none bg-[#FFF9F5] p-5 shadow-2xl ring-1 ring-black/10 sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#C75560]">Resume access</p>
-                <h2 className="mt-2 text-2xl font-bold text-[#1D181A]" style={{ fontFamily: FONT_DISPLAY }}>Pay to download</h2>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#C75560]">HireLoop Platform</p>
+                <h2 className="mt-2 text-2xl font-bold text-[#1D181A]" style={{ fontFamily: FONT_DISPLAY }}>Resume download bill</h2>
+                <p className="mt-1 text-xs text-[#6B7280]">Secure wallet payment · Tax invoice preview</p>
               </div>
               <button
                 type="button"
@@ -1262,42 +1273,51 @@ export default function Applicants() {
                   setResumePaymentModalOpen(false);
                   setResumePaymentCandidate(null);
                 }}
-                className="rounded-full border border-[#EBC2AE] bg-white p-2 text-[#54263F] transition hover:border-[#C75560] hover:text-[#C75560]"
+                className="border border-[#EBC2AE] bg-white p-2 text-[#54263F] transition hover:border-[#C75560] hover:text-[#C75560]"
                 aria-label="Close resume payment modal"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-[#EBC2AE] bg-white p-4">
-              <div className="flex items-center justify-between gap-3 border-b border-[#F1DDD4] pb-3">
+            <div className="mt-5 rounded-none border border-[#EBC2AE] bg-white p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-dashed border-[#EBC2AE] pb-4">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#80576A]">Recruiter</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#80576A]">Billed to</p>
                   <p className="mt-1 text-sm font-bold text-[#1D181A]">{resumePaymentDetails.recruiterName}</p>
                   {resumePaymentDetails.email && <p className="text-xs text-[#6B7280]">{resumePaymentDetails.email}</p>}
                 </div>
-                <span className="rounded-full bg-[#FFF0E8] px-2.5 py-1 text-[10px] font-bold text-[#C75560]">Wallet</span>
+                <div className="text-right text-[10px] text-[#6B7280]">
+                  <p><span className="font-semibold text-[#80576A]">Invoice:</span> HR-{String(resumePaymentCandidate.candidate?._id || resumePaymentCandidate._id || '').slice(-8).toUpperCase()}</p>
+                  <p className="mt-1"><span className="font-semibold text-[#80576A]">Date:</span> {new Date().toLocaleDateString('en-IN')}</p>
+                </div>
               </div>
 
-              <div className="mt-3 space-y-2 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[#6B7280]">Candidate</span>
-                  <span className="font-semibold text-[#1D181A]">{resumePaymentCandidate.candidate?.name || 'Candidate'}</span>
+              <div className="mt-4 overflow-hidden rounded-none border border-[#F1DDD4] text-sm">
+                <div className="grid grid-cols-[1fr_auto] gap-3 bg-[#FFF9F5] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#80576A]">
+                  <span>Description</span><span>Amount</span>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[#6B7280]">Available wallet</span>
-                  <span className="font-semibold text-[#1D181A]">{formatMoney(resumePaymentDetails.walletBalance)}</span>
+                <div className="flex items-center justify-between gap-3 px-3 py-3">
+                  <div><p className="font-semibold text-[#1D181A]">Candidate resume download</p><p className="mt-0.5 text-xs text-[#6B7280]">{resumePaymentCandidate.candidate?.name || 'Candidate'} · Wallet</p></div>
+                  <span className="font-semibold text-[#1D181A]">{formatMoney(resumePaymentDetails.baseAmount)}</span>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[#6B7280]">Resume fee</span>
-                  <span className="font-semibold text-[#C75560]">{formatMoney(resumePaymentDetails.amount)}</span>
+                <div className="flex items-center justify-between border-t border-[#F1DDD4] px-3 py-2.5 text-[#6B7280]">
+                  <span>GST ({resumePaymentDetails.gstRate}%)</span><span>{formatMoney(resumePaymentDetails.gstAmount)}</span>
                 </div>
+                <div className="flex items-center justify-between border-t border-[#EBC2AE] bg-[#FFF0E8] px-3 py-3 font-bold text-[#1D181A]">
+                  <span>Total payable</span><span className="text-[#C75560]">{formatMoney(resumePaymentDetails.amount)}</span>
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[#6B7280]">
+                <span>Wallet balance after payment</span>
+                <span className="font-semibold text-[#1D181A]">{formatMoney(resumePaymentDetails.walletBalance - resumePaymentDetails.amount)}</span>
               </div>
             </div>
 
-            <div className="mt-4 rounded-2xl bg-[#FFF0E8] p-4 text-sm text-[#54263F]">
-              <p className="font-semibold text-[#1D181A]">Payment summary</p>
-              <p className="mt-1">This download will deduct <strong>{formatMoney(resumePaymentDetails.amount)}</strong> from your wallet after you confirm.</p>
+            <div className="mt-4 flex items-start gap-2 rounded-none border border-[#D8EBD9] bg-[#F2FAF2] p-3 text-xs text-[#35613A]">
+              <span className="mt-0.5 text-sm">✓</span>
+              <p>Payment is processed securely from your wallet. The resume will download after successful confirmation.</p>
             </div>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
@@ -1307,7 +1327,7 @@ export default function Applicants() {
                   setResumePaymentModalOpen(false);
                   setResumePaymentCandidate(null);
                 }}
-                className="rounded-full border border-[#EBC2AE] bg-white px-4 py-2 text-sm font-semibold text-[#54263F] transition hover:border-[#C75560] hover:text-[#C75560]"
+                className="border border-[#EBC2AE] bg-white px-4 py-2 text-sm font-semibold text-[#54263F] transition hover:border-[#C75560] hover:text-[#C75560]"
               >
                 Cancel
               </button>
@@ -1315,7 +1335,7 @@ export default function Applicants() {
                 type="button"
                 onClick={confirmResumePayment}
                 disabled={resumePaying}
-                className="rounded-full bg-[#C75560] px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60"
+                className="bg-[#C75560] px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60"
               >
                 {resumePaying ? 'Processing…' : `Pay ${formatMoney(resumePaymentDetails.amount)}`}
               </button>

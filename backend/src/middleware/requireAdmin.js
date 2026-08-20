@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const AdminSession = require('../models/AdminSession');
 
 // This is intentionally NOT the same function as verifyToken() in auth.js.
 // It uses ADMIN_JWT_SECRET (a different secret), a shorter expiry, and an
@@ -17,7 +18,7 @@ function ipAllowed(req) {
   return whitelist.includes(requestIp);
 }
 
-function requireAdmin(req, res, next) {
+async function requireAdmin(req, res, next) {
   if (!ipAllowed(req)) {
     return res.status(403).json({ error: 'Access denied from this network' });
   }
@@ -34,6 +35,11 @@ function requireAdmin(req, res, next) {
     if (decoded.type !== 'admin') {
       return res.status(403).json({ error: 'Not an admin token' });
     }
+    if (!decoded.sid) return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+    const session = await AdminSession.findOne({ tokenId: decoded.sid, admin: decoded.id, expiresAt: { $gt: new Date() } });
+    if (!session) return res.status(401).json({ error: 'Session expired or revoked. Please sign in again.' });
+    session.lastActiveAt = new Date();
+    await session.save();
     req.admin = decoded; // { id, role: 'admin' | 'superadmin' }
     next();
   } catch (err) {

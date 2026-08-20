@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import RecruiterProfileMenu from "../../components/RecruiterProfileMenu";
 import NotificationCenter from "../../components/NotificationCenter";
+import axiosInstance from "../../api/axiosInstance";
+import { fetchPlatformBranding, getCachedPlatformBranding } from "../../api/platformBranding";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -84,7 +86,6 @@ import {
   CORAL_HOVER,
   AMBER,
 } from "../../theme";
-import axiosInstance from "../../api/axiosInstance";
 /* ============================== TOKENS ============================== */
 // Palette: canvas ivory, coral accent (#C75560), amber highlights (#F7C56B), violet details.
 // Warm signal color for "match" and goal progress, with coral-led accent gradients.
@@ -816,9 +817,24 @@ function TopNav({ recruiterProfile, onMenuClick, notifications = [] }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [openMenu, setOpenMenu] = useState(null); // null | "calendar" | "notif"
+  const [platformBranding, setPlatformBranding] = useState(getCachedPlatformBranding);
   const toggleMenu = (key) => setOpenMenu((prev) => (prev === key ? null : key));
   const navRef = useRef(null);
   const displayName = user?.name || 'Recruiter';
+
+  useEffect(() => {
+    let active = true;
+    fetchPlatformBranding()
+      .then((branding) => {
+        if (active) setPlatformBranding(branding);
+      })
+      .catch(() => {
+        // Keep the last cached branding when the endpoint is unavailable.
+      });
+    return () => { active = false; };
+  }, []);
+
+  const brandName = platformBranding.siteName;
 
   // "Clear all" just moves this cutoff forward to now and persists it —
   // anything at or before this timestamp is treated as cleared and will
@@ -869,11 +885,15 @@ function TopNav({ recruiterProfile, onMenuClick, notifications = [] }) {
         </button>
 
         <div className="flex items-center gap-2 shrink-0 min-w-0">
-          <div className="h-8 w-8 shrink-0 rounded-xl bg-gradient-to-br from-[#C75560] to-[#F7C56B] flex items-center justify-center shadow-md shadow-[#C75560]/20">
-            <Sparkles className="text-white" size={15} />
+          <div className={`h-8 w-8 shrink-0 overflow-hidden rounded-xl flex items-center justify-center shadow-md ${platformBranding.siteName || platformBranding.logo ? 'bg-gradient-to-br from-[#C75560] to-[#F7C56B] shadow-[#C75560]/20' : 'animate-pulse bg-[#F3E5DE]'}`}>
+            {platformBranding.logo ? (
+              <img src={platformBranding.logo} alt={`${brandName || 'Platform'} logo`} className="h-full w-full object-cover" />
+            ) : brandName ? (
+              <span className="text-[10px] font-extrabold text-white">{brandName.slice(0, 2).toUpperCase()}</span>
+            ) : null}
           </div>
           <p className="text-sm font-bold text-slate-900 truncate">
-            Job Portal
+            {brandName || <span className="block h-3 w-20 animate-pulse bg-[#F3E5DE]" aria-label="Loading platform name" />}
           </p>
         </div>
 

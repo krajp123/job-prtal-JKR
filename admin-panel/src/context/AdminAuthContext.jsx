@@ -13,7 +13,7 @@ export function AdminAuthProvider({ children }) {
     if (!admin || admin.id) return;
     adminAxiosInstance.get('/auth/me')
       .then(({ data }) => {
-        const hydrated = { id: data._id, name: data.name, email: data.email, role: data.role, profilePictureUrl: data.profilePictureUrl };
+        const hydrated = { id: data._id, name: data.name, email: data.email, role: data.role, profilePictureUrl: data.profilePictureUrl, sessionId: data.sessionId };
         localStorage.setItem('admin_user', JSON.stringify(hydrated));
         setAdmin(hydrated);
       })
@@ -22,9 +22,9 @@ export function AdminAuthProvider({ children }) {
       });
   }, [admin]);
 
-  function login({ token, id, name, role, profilePictureUrl }) {
+  function login({ token, id, name, role, profilePictureUrl, sessionId }) {
     localStorage.setItem('admin_token', token);
-    const adminData = { id, name, role, profilePictureUrl };
+    const adminData = { id, name, role, profilePictureUrl, sessionId };
     localStorage.setItem('admin_user', JSON.stringify(adminData));
     setAdmin(adminData);
   }

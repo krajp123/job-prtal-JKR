@@ -9,6 +9,8 @@ const adminBadgeController = require('../controllers/admin/adminBadge.controller
 const adminDisputeController = require('../controllers/admin/adminDispute.controller');
 const adminJobsController = require('../controllers/admin/adminJobs.controller');
 const adminManagementController = require('../controllers/admin/adminManagement.controller');
+const adminReportsController = require('../controllers/admin/adminReports.controller');
+const adminSettingsController = require('../controllers/admin/adminSettings.controller');
 
 const { requireAdmin, requireSuperAdmin } = require('../middleware/requireAdmin');
 const { adminLoginLimiter, adminApiLimiter } = require('../middleware/rateLimiter');
@@ -16,9 +18,13 @@ const { uploadProfilePicture } = require('../middleware/uploadHandler');
 
 // ---- Auth (public within /admin-api, but rate-limited hard) ----
 router.post('/auth/login', adminLoginLimiter, adminAuthController.login);
+router.post('/auth/two-factor/verify', adminLoginLimiter, adminAuthController.verifyTwoFactor);
 router.get('/auth/me', requireAdmin, adminAuthController.me);
+router.get('/auth/sessions', requireAdmin, adminAuthController.listSessions);
+router.delete('/auth/sessions/:sessionId', requireAdmin, adminAuthController.revokeSession);
 router.patch('/auth/profile', requireAdmin, adminAuthController.updateProfile);
 router.patch('/auth/password', requireAdmin, adminAuthController.changePassword);
+router.patch('/auth/two-factor', requireAdmin, adminAuthController.updateTwoFactor);
 router.post('/auth/profile-picture', requireAdmin, uploadProfilePicture.single('profilePicture'), adminAuthController.uploadProfilePicture);
 router.delete('/auth/profile-picture', requireAdmin, adminAuthController.removeProfilePicture);
 
@@ -34,6 +40,43 @@ router.get('/admin-audit', requireSuperAdmin, adminManagementController.audit);
 
 // ---- Dashboard ----
 router.get('/dashboard/overview', adminDashboardController.getOverview);
+router.get('/reports', adminReportsController.getReports);
+router.get('/admin/settings', adminSettingsController.get);
+router.put('/admin/settings', requireSuperAdmin, adminSettingsController.update);
+router.post('/admin/settings/logo', requireSuperAdmin, uploadProfilePicture.single('logo'), adminSettingsController.uploadLogo);
+router.get('/admin/security/audit', adminSettingsController.getAudit);
+router.get('/admin/notifications', async (req, res) => {
+	try {
+		const { listAdminNotifications } = require('../services/adminNotification.service');
+		const items = await listAdminNotifications(req.admin.id);
+		res.json({ items, unreadCount: items.filter((item) => !item.read).length });
+	} catch (error) {
+		res.status(500).json({ error: error.message });
+	}
+});
+router.patch('/admin/notifications/:id/read', async (req, res) => {
+	try {
+		const AdminNotification = require('../models/AdminNotification');
+		const item = await AdminNotification.findOneAndUpdate(
+			{ _id: req.params.id, admin: req.admin.id },
+			{ read: true },
+			{ new: true }
+		);
+		if (!item) return res.status(404).json({ error: 'Notification not found' });
+		res.json(item);
+	} catch (error) {
+		res.status(500).json({ error: error.message });
+	}
+});
+router.patch('/admin/notifications/read-all', async (req, res) => {
+	try {
+		const AdminNotification = require('../models/AdminNotification');
+		await AdminNotification.updateMany({ admin: req.admin.id, read: false }, { read: true });
+		res.json({ message: 'All admin notifications marked as read' });
+	} catch (error) {
+		res.status(500).json({ error: error.message });
+	}
+});
 
 // ---- User management ----
 router.get('/users/candidates', adminUsersController.listCandidates);

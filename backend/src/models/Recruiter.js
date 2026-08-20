@@ -20,6 +20,9 @@ const recruiterSchema = new mongoose.Schema(
     companyEmail: { type: String, trim: true, lowercase: true },
     companyGst: { type: String, trim: true },
     companyCin: { type: String, trim: true },
+    industry: { type: String, trim: true },
+    companySize: { type: String, trim: true },
+    companyType: { type: String, trim: true },
     companyLogoUrl: { type: String },
     companyDetails: { type: String },
     profilePictureUrl: { type: String }, // Recruiter's own profile picture

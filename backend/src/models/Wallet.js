@@ -10,6 +10,9 @@ const walletTransactionSchema = new mongoose.Schema(
     description: { type: String, required: true },
     reference: { type: String }, // e.g., payment ID or resume download reference
     amount: { type: Number, required: true }, // positive for recharge/refund, negative for resume_download
+    baseAmount: { type: Number },
+    gstAmount: { type: Number, default: 0 },
+    gstRate: { type: Number, default: 0 },
     balanceAfter: { type: Number, required: true }, // balance after this transaction
     status: {
       type: String,

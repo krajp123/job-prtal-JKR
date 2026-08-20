@@ -5,6 +5,7 @@ const Candidate = require('../models/Candidate');
 const { checkFirstApplicationBadge, updateApplicationStreak } = require('../services/badge.service');
 const { createNotification } = require('../services/notification.service');
 const { sendShortlistEmail, sendInterviewScheduleEmail, sendRejectionEmail } = require('../services/email.service');
+const { getPlatformSettings } = require('../services/platformSettings.service');
 
 // Helper function to calculate skill matching
 const calculateSkillMatch = (candidateSkills = [], jobSkills = []) => {
@@ -33,13 +34,20 @@ exports.apply = async (req, res) => {
       return res.status(400).json({ error: 'Job not available' });
     }
 
+    const [candidate, settings] = await Promise.all([
+      Candidate.findById(req.user.id),
+      getPlatformSettings(),
+    ]);
+    if (settings.emailVerificationRequired && !candidate?.emailVerified) {
+      return res.status(403).json({ error: 'Please verify your email before applying to jobs.', code: 'EMAIL_VERIFICATION_REQUIRED' });
+    }
+
     const existing = await Application.findOne({ candidate: req.user.id, job: jobId });
     if (existing) {
       return res.status(409).json({ error: 'You already applied to this job' });
     }
 
     // Get candidate profile for skill matching
-    const candidate = await Candidate.findById(req.user.id);
     const candidateSkills = candidate?.profile?.skills || [];
     
     // Calculate skill matching

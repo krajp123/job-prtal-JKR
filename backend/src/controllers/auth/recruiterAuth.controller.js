@@ -2,20 +2,33 @@ const Recruiter = require('../../models/Recruiter');
 const { hashPassword, comparePassword } = require('../../utils/hashPassword');
 const { generateUserToken } = require('../../utils/generateToken');
 const { isValidEmail, isStrongEnoughPassword } = require('../../utils/validators');
+const { createAdminNotification } = require('../../services/adminNotification.service');
 
 // POST /api/recruiter/register
 exports.register = async (req, res) => {
   try {
-    const { email, password, fullName, phone, companyName, companyWebsite, companyDetails } = req.body;
+    const {
+      email, workEmail, password, fullName, firstName, lastName, phone, mobile,
+      companyName, companyWebsite, companyDetails, companyDescription,
+      companyEmail, companyEmailDomain, companyGst, gstNumber, companyCin, cinNumber,
+      industry, companySize, companyType, companyLocation,
+    } = req.body;
+    const normalizedEmail = email || workEmail;
+    const normalizedName = fullName || [firstName, lastName].filter(Boolean).join(' ');
+    const normalizedPhone = phone || mobile;
+    const normalizedDetails = companyDetails || companyDescription;
+    const normalizedGst = companyGst || gstNumber;
+    const normalizedCin = companyCin || cinNumber;
+    const normalizedLocation = companyLocation;
 
-    if (!isValidEmail(email)) {
+    if (!isValidEmail(normalizedEmail)) {
       return res.status(400).json({ error: 'Invalid email address' });
     }
     if (!isStrongEnoughPassword(password)) {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
-    const existing = await Recruiter.findOne({ email });
+    const existing = await Recruiter.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(409).json({ error: 'An account with this email already exists' });
     }
@@ -26,16 +39,30 @@ exports.register = async (req, res) => {
     renewalDueDate.setFullYear(renewalDueDate.getFullYear() + 1);
 
     const recruiter = await Recruiter.create({
-      email,
+      email: normalizedEmail,
       passwordHash,
-      fullName,
-      phone,
+      fullName: normalizedName,
+      phone: normalizedPhone,
       companyName,
       companyWebsite,
-      companyDetails,
+      companyEmail: companyEmail || companyEmailDomain,
+      companyGst: normalizedGst,
+      companyCin: normalizedCin,
+      companyDetails: normalizedDetails,
+      industry,
+      companySize,
+      companyType,
+      location: normalizedLocation,
       languages: [],
       expertiseTags: [],
       renewalDueDate,
+    });
+
+    await createAdminNotification({
+      key: 'newRecruiterSignup',
+      title: 'New recruiter signup',
+      message: `${recruiter.fullName || recruiter.email} registered as a recruiter for ${recruiter.companyName || 'a company'}.`,
+      relatedId: recruiter._id,
     });
 
     res.status(201).json({
