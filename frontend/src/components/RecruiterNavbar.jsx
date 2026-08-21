@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BriefcaseBusiness, LayoutDashboard, PlusCircle, UsersRound, Wallet } from 'lucide-react';
+import { BriefcaseBusiness, LayoutDashboard, MessageCircle, PlusCircle, UsersRound, Wallet } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import RecruiterProfileMenu from './RecruiterProfileMenu';
 import { FONT_DISPLAY } from '../theme';
@@ -41,7 +41,7 @@ export default function RecruiterNavbar() {
 
     return (
         <header className="sticky top-0 z-30 overflow-visible border-b border-[#EBC2AE] bg-[#FFFDFC]/95 backdrop-blur-md">
-            <div className="mx-auto flex w-full max-w-6xl items-center gap-4 overflow-visible px-5 py-3 sm:px-8">
+            <div className="mx-auto flex w-full max-w-6xl items-center gap-3 overflow-visible px-4 py-2.5 sm:px-6">
                 <Link to="/recruiter/dashboard" className="flex min-w-[140px] shrink-0 items-center gap-2" aria-label={`${brandName || 'Platform'} recruiter dashboard`}>
                     <span className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl text-xs font-extrabold shadow-sm ${platformBranding.siteName || platformBranding.logo ? 'bg-gradient-to-br from-[#C75560] to-[#E7A24B] text-white' : 'animate-pulse bg-[#F3E5DE]'}`}>
                         {platformBranding.logo ? (
@@ -70,6 +70,17 @@ export default function RecruiterNavbar() {
                 <div className="ml-auto flex items-center gap-2">
                     <button
                         type="button"
+                        onClick={() => navigate('/recruiter/messages')}
+                        className="inline-flex items-center gap-2 rounded-lg border border-[#EBC2AE] bg-[#FFF0E8] px-3 py-2 text-[12px] font-bold text-[#1D181A] transition-all hover:-translate-y-0.5 hover:border-[#C75560]"
+                        title="Message"
+                        aria-label="Message"
+                    >
+                        <MessageCircle size={15} className="text-[#C75560]" />
+                        <span className="hidden sm:inline">Message</span>
+                    </button>
+
+                    <button
+                        type="button"
                         onClick={() => navigate('/recruiter/wallet')}
                         className="inline-flex items-center gap-2 rounded-lg border border-[#EBC2AE] bg-[#FFF0E8] px-3 py-2 text-[12px] font-bold text-[#1D181A] transition-all hover:-translate-y-0.5 hover:border-[#C75560]"
                         title="Wallet"
@@ -81,7 +92,7 @@ export default function RecruiterNavbar() {
                     <RecruiterProfileMenu />
                 </div>
             </div>
-            <nav className="mx-auto flex w-full max-w-6xl gap-1 border-t border-[#F0D1BF] px-5 py-1.5 md:hidden sm:px-8" aria-label="Recruiter mobile navigation">
+            <nav className="mx-auto flex w-full max-w-6xl gap-1 border-t border-[#F0D1BF] px-4 py-1 md:hidden sm:px-6" aria-label="Recruiter mobile navigation">
                 {links.map(({ to, label, icon: Icon }) => (
                     <NavLink key={to} to={to} className={({ isActive }) => navClass(isActive)}>
                         <Icon size={14} />

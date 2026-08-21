@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -18,6 +18,8 @@ import {
   RefreshCcw,
   ArrowRightFromLine,
   ShieldCheck,
+  Flag,
+  Trash2,
 } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import adminAxiosInstance from '../api/adminAxiosInstance';
@@ -42,13 +44,14 @@ const NAV_LINK_SECTIONS = [
       { to: '/jobs', label: 'Jobs', icon: Briefcase },
       { to: '/applications', label: 'Applicants', icon: ClipboardList },
       { to: '/reopen-requests', label: 'Reopen Requests', icon: RefreshCcw },
+      { to: '/job-reports', label: 'Job Reports', icon: Flag },
     ],
   },
   {
     title: 'Finance',
     items: [
       { to: '/wallet-payments', label: 'Account', icon: Wallet },
-      { to: '/reports', label: 'Reports', icon: BarChart3 },
+      { to: '/reports', label: 'Analytics', icon: BarChart3 },
       { to: '/settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -116,7 +119,28 @@ export default function AdminLayout() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [adminNotifications, setAdminNotifications] = useState([]);
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [globalSearchResults, setGlobalSearchResults] = useState([]);
+  const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
+  const [globalSearchSubmitted, setGlobalSearchSubmitted] = useState(false);
+  const [platformBranding, setPlatformBranding] = useState({ siteName: 'Career Route', logo: null });
   const notificationRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    adminAxiosInstance.get('/admin/settings')
+      .then(({ data }) => {
+        if (!active) return;
+        const settings = data.settings || {};
+        setPlatformBranding({
+          siteName: settings.siteName || 'Career Route',
+          logo: settings.logo || null,
+        });
+      })
+      .catch(() => {})
+      .finally(() => { active = false; });
+    return () => { active = false; };
+  }, []);
 
   const refreshNotifications = async () => {
     try {
@@ -171,7 +195,17 @@ export default function AdminLayout() {
       await adminAxiosInstance.patch(`/admin/notifications/${notification._id}/read`).catch(() => {});
       setAdminNotifications((current) => current.map((item) => item._id === notification._id ? { ...item, read: true } : item));
     }
+    if (notification.key === 'jobFlagged') navigate('/job-reports');
     setNotificationsOpen(false);
+  };
+
+  const clearAdminNotifications = async () => {
+    try {
+      await adminAxiosInstance.delete('/admin/notifications');
+      setAdminNotifications([]);
+    } catch (err) {
+      console.error('Failed to clear admin notifications:', err);
+    }
   };
 
   const unreadAdminNotifications = adminNotifications.filter((notification) => !notification.read).length;
@@ -180,6 +214,44 @@ export default function AdminLayout() {
   const handleLogout = () => {
     logout();
     navigate('/login', { replace: true });
+  };
+
+  const searchAll = useCallback(async (term) => {
+    setGlobalSearchSubmitted(true);
+    setGlobalSearchLoading(true);
+    try {
+      const [candidateResponse, recruiterResponse, jobResponse] = await Promise.all([
+        adminAxiosInstance.get('/users/candidates', { params: { search: term, page: 1, limit: 5 } }),
+        adminAxiosInstance.get('/users/recruiters', { params: { search: term, page: 1, limit: 5 } }),
+        adminAxiosInstance.get('/jobs', { params: { search: term, page: 1, limit: 5 } }),
+      ]);
+      const candidates = candidateResponse.data?.candidates || [];
+      const recruiters = recruiterResponse.data?.recruiters || [];
+      const jobs = jobResponse.data?.jobs || [];
+      setGlobalSearchResults([
+        ...candidates.map((item) => ({ type: 'Candidate', label: item.name, meta: item.email, path: `/candidates/${item._id}` })),
+        ...recruiters.map((item) => ({ type: 'Recruiter', label: item.fullName, meta: item.companyName || item.email, path: `/recruiters/${item._id}` })),
+        ...jobs.map((item) => ({ type: 'Job', label: item.title, meta: item.postedBy?.companyName || item.location, path: `/jobs/${item._id}` })),
+      ].slice(0, 12));
+    } catch (error) {
+      console.error('Global admin search failed:', error);
+      setGlobalSearchResults([]);
+    } finally {
+      setGlobalSearchLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const term = globalSearch.trim();
+    if (term.length < 2) return undefined;
+    const timer = setTimeout(() => searchAll(term), 350);
+    return () => clearTimeout(timer);
+  }, [globalSearch, searchAll]);
+
+  const handleGlobalSearch = (event) => {
+    event.preventDefault();
+    const term = globalSearch.trim();
+    if (term.length >= 2) searchAll(term);
   };
 
   return (
@@ -195,14 +267,51 @@ export default function AdminLayout() {
         </div>
 
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
-          <div className="relative hidden sm:block">
+          <form onSubmit={handleGlobalSearch} className="relative hidden sm:block">
             <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#C75560]" />
             <input
               type="text"
-              placeholder="Search recruiters, candidates, jobs..."
+              placeholder="Search candidates, recruiters, jobs..."
+              value={globalSearch}
+              onChange={(event) => {
+                const value = event.target.value;
+                setGlobalSearch(value);
+                if (value.trim().length < 2) {
+                  setGlobalSearchResults([]);
+                  setGlobalSearchSubmitted(false);
+                }
+              }}
+              aria-label="Search candidates, recruiters, or jobs"
               className="w-64 rounded-lg border border-[#EBC2AE] bg-[#FFF9F5] py-2 pl-8 pr-3 text-xs text-[#1D181A] outline-none transition focus:border-[#C75560] focus:ring-2 focus:ring-[#C75560]/15"
             />
-          </div>
+            {(globalSearchLoading || globalSearchSubmitted) && (
+              <div className="absolute left-0 top-full z-50 mt-1 w-80 overflow-hidden rounded-lg border border-[#EBC2AE] bg-white shadow-lg">
+                {globalSearchLoading ? (
+                  <p className="px-3 py-3 text-xs text-[#80576A]">Searching...</p>
+                ) : (
+                  globalSearchResults.map((result, index) => (
+                    <button
+                      key={`${result.type}-${result.path}-${index}`}
+                      type="button"
+                      onClick={() => {
+                        navigate(result.path);
+                        setGlobalSearchResults([]);
+                        setGlobalSearchSubmitted(false);
+                      }}
+                      className="block w-full border-b border-[#F3E9E3] px-3 py-2 text-left last:border-0 hover:bg-[#FFF4EF]"
+                    >
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-[#C75560]">{result.type}</span>
+                      <span className="block truncate text-xs font-semibold text-[#1D181A]">{result.label || 'Unnamed'}</span>
+                      <span className="block truncate text-[10px] text-[#80576A]">{result.meta || 'No additional details'}</span>
+                    </button>
+                  ))
+                )}
+                {!globalSearchLoading && globalSearchResults.length === 0 && (
+                  <p className="px-3 py-3 text-xs text-[#80576A]">No matching candidates, recruiters, or jobs.</p>
+                )}
+              </div>
+            )}
+          </form>
 
           <div className="flex items-center gap-2">
             <div className="relative" ref={notificationRef}>
@@ -221,7 +330,19 @@ export default function AdminLayout() {
               {notificationsOpen && (
                 <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-2xl border border-[#EBC2AE] bg-white shadow-lg z-50">
                   <div className="sticky top-0 border-b border-[#EBC2AE] bg-[#FFF9F5] px-4 py-3">
-                    <p className="text-sm font-semibold text-[#1D181A]">Notifications</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-[#1D181A]">Notifications</p>
+                      {adminNotifications.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={clearAdminNotifications}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#C75560] hover:text-[#A0182C]"
+                          title="Clear notifications"
+                        >
+                          <Trash2 size={12} /> Clear
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {pendingRequests.length === 0 && adminNotifications.length === 0 ? (
                     <div className="px-4 py-6 text-center text-xs text-[#80576A]">
@@ -321,12 +442,12 @@ export default function AdminLayout() {
           </button>
 
           <div className={`mb-3 flex shrink-0 items-center px-1 ${sidebarCollapsed ? 'justify-center' : 'gap-2.5'}`}>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#C75560] text-[13px] font-bold text-white">
-              CR
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#C75560] text-[13px] font-bold text-white">
+              {platformBranding.logo ? <img src={platformBranding.logo} alt="" className="h-full w-full object-cover" /> : platformBranding.siteName.slice(0, 2).toUpperCase()}
             </div>
             {!sidebarCollapsed && (
               <div className="overflow-hidden">
-                <p className="whitespace-nowrap text-[13px] font-semibold text-[#1D181A]">Career Route</p>
+                <p className="whitespace-nowrap text-[13px] font-semibold text-[#1D181A]">{platformBranding.siteName}</p>
                 <p className="whitespace-nowrap text-[10px] text-[#80576A]">Admin Console</p>
               </div>
             )}
@@ -392,11 +513,11 @@ export default function AdminLayout() {
             <aside className="relative z-50 flex w-64 flex-col bg-[#FFFDFB] px-3 py-5">
               <div className="mb-6 flex items-center justify-between px-1">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#C75560] text-[13px] font-bold text-white">
-                    CR
+                  <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-[#C75560] text-[13px] font-bold text-white">
+                    {platformBranding.logo ? <img src={platformBranding.logo} alt="" className="h-full w-full object-cover" /> : platformBranding.siteName.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-[13px] font-semibold text-[#1D181A]">Career Route</p>
+                    <p className="text-[13px] font-semibold text-[#1D181A]">{platformBranding.siteName}</p>
                     <p className="text-[10px] text-[#80576A]">Admin Console</p>
                   </div>
                 </div>

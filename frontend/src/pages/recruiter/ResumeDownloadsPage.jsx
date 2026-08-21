@@ -144,7 +144,7 @@ export default function ResumeDownloadsPage() {
   return (
     <div className="min-h-screen w-full text-[#1D181A]" style={{ background: '#F8F5F0' }}>
       <RecruiterNavbar />
-      <div className="mx-auto w-full max-w-[1400px] px-3 py-4 sm:px-6 sm:py-6">
+      <div className="recruiter-page mx-auto w-full max-w-[1400px] px-3 py-3 sm:px-5 sm:py-4">
         <div className="mb-5 flex items-center justify-between gap-3">
           <button
             type="button"

@@ -12,6 +12,7 @@ import {
   Users,
   Sparkles,
   CalendarDays,
+  MessageCircle,
   MessageSquare,
   BarChart3,
   FileText,
@@ -401,7 +402,7 @@ const STATUS_STYLES = {
 
 const GlassCard = ({ className = "", children, ...props }) => (
   <div
-    className={`rounded-[28px] border backdrop-blur-xl shadow-[0_26px_60px_-40px_rgba(29,24,26,0.24)] ${className}`}
+    className={`rounded-xl border backdrop-blur-xl shadow-[0_20px_44px_-32px_rgba(29,24,26,0.24)] ${className}`}
     style={{ background: IVORY, borderColor: LIGHT_BORDER }}
     {...props}
   >
@@ -447,7 +448,7 @@ function SidebarProfileCard({ expanded, onToggle, recruiterProfile }) {
     onToggle();
   };
 
-  const recruiterName = recruiterProfile?.name || 'Recruiter';
+  const recruiterName = recruiterProfile?.fullName || recruiterProfile?.name || 'Recruiter';
   const companyName = recruiterProfile?.companyName || 'Your Company';
   const companyLogoUrl = recruiterProfile?.companyLogoUrl;
   const profileCompleteness = recruiterProfile?.profileCompleteness || 72;
@@ -501,9 +502,6 @@ function SidebarProfileCard({ expanded, onToggle, recruiterProfile }) {
 
       {expanded && (
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">
-            Profile
-          </p>
           <p className="truncate text-[13px] font-bold">{recruiterName}</p>
           <p className="truncate text-[11px] text-white/70">
             {companyName} · Recruiter
@@ -710,7 +708,7 @@ function Sidebar({
     <>
       {/* Desktop persistent sidebar — collapses to an icon rail when the profile card is toggled closed */}
       <aside
-        className={`hidden lg:block lg:sticky lg:top-[115px] lg:overflow-y-auto lg:max-h-[calc(100vh-104px)] shrink-0 rounded-[48px] transition-all duration-300 min-w-0 ${
+        className={`hidden lg:block lg:sticky lg:top-[96px] lg:overflow-y-auto lg:max-h-[calc(100vh-88px)] shrink-0 rounded-3xl transition-all duration-300 min-w-0 ${
           expanded
             ? "lg:w-[260px] lg:h-[calc(100vh-96px)]"
             : "lg:w-[84px] lg:h-auto"
@@ -922,6 +920,16 @@ function TopNav({ recruiterProfile, onMenuClick, notifications = [] }) {
           <div className="flex items-center justify-center">
             <NotificationCenter className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-800" />
           </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/recruiter/messages')}
+            aria-label="Messages"
+            title="Messages"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+          >
+            <MessageCircle size={18} />
+          </button>
 
           {/* Wallet button - placed before profile */}
           <button
@@ -3135,7 +3143,7 @@ export default function RecruiterDashboard() {
         notifications={activityFeed}
       />
 
-      <div className="mx-auto grid w-full max-w-[1400px] gap-4 px-3 sm:px-6 py-4 sm:py-6 lg:grid-cols-[minmax(auto,280px)_minmax(0,1fr)_minmax(auto,300px)]">
+      <div className="mx-auto grid w-full max-w-[1400px] gap-3 px-3 py-3 sm:px-5 sm:py-4 lg:grid-cols-[minmax(auto,240px)_minmax(0,1fr)_minmax(auto,260px)]">
         <Sidebar
           recruiterProfile={recruiterProfile}
           active={active}
@@ -3146,7 +3154,7 @@ export default function RecruiterDashboard() {
           setExpanded={setSidebarExpanded}
         />
 
-        <main className="flex-1 min-w-0 space-y-5">
+        <main className="flex-1 min-w-0 space-y-4">
           <TopSectionNav active={active} setActive={setActive} />
 
           <div id="section-Home" className="scroll-mt-36">

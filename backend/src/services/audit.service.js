@@ -46,15 +46,6 @@ async function logAdminAction({ adminId, action, targetType, targetId, details, 
     ip,
   });
 
-  const oldLogs = await AdminAuditLog.find()
-    .sort({ createdAt: -1, _id: -1 })
-    .skip(30)
-    .select('_id')
-    .lean();
-
-  if (oldLogs.length) {
-    await AdminAuditLog.deleteMany({ _id: { $in: oldLogs.map((log) => log._id) } });
-  }
 }
 
 module.exports = { logAdminAction };

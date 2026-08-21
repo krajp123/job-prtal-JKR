@@ -152,7 +152,7 @@ function CompanyRating({ rating }) {
 
 // Multi-select dropdown for "Preferred job role" — click to open, click again
 // (or click outside) to close, checkboxes allow picking more than one role.
-function RoleMultiSelect({ selected, onChange }) {
+function RoleMultiSelect({ selected, onChange, suggestions = [] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -206,7 +206,7 @@ function RoleMultiSelect({ selected, onChange }) {
             transition={{ duration: 0.15 }}
             className="absolute z-20 mt-1.5 max-h-56 w-full overflow-y-auto rounded-[10px] border border-stone-200 bg-white p-1.5 shadow-lg"
           >
-            {ROLE_SUGGESTIONS.map((r) => {
+            {[...new Set([...suggestions, ...ROLE_SUGGESTIONS])].map((r) => {
               const checked = selected.includes(r);
               return (
                 <label
@@ -257,6 +257,7 @@ export default function JobSearch() {
   const [salaryRange, setSalaryRange] = useState("");
   const [industry, setIndustry] = useState("");
   const [datePosted, setDatePosted] = useState("");
+  const [suggestions, setSuggestions] = useState({ titles: [], roles: [], categories: [], industries: [], locations: [] });
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const [jobs, setJobs] = useState([]);
@@ -271,22 +272,19 @@ export default function JobSearch() {
 
   const debouncedKeyword = useDebouncedValue(keyword, 400);
   const debouncedLocation = useDebouncedValue(location, 400);
+  const debouncedSuggestionQuery = useDebouncedValue(keyword || roles[0] || industry || location, 250);
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      // TODO(backend): job.controller.js `list` currently matches `skill` against
-      // skillsRequired only. Extend with $or on title/description/role, and add
-      // salaryRange / industry / datePosted / role query params server-side to
-      // fully wire up these new filters.
       const { data } = await axiosInstance.get("/jobs", {
         params: {
-          skill: debouncedKeyword || undefined,
+          title: debouncedKeyword || undefined,
           role: roles.length ? roles.join(",") : undefined,
           location: debouncedLocation || undefined,
           experienceLevel: experienceLevel || undefined,
-          salaryRange: salaryRange || undefined,
+          salary: salaryRange || undefined,
           industry: industry || undefined,
           datePosted: datePosted || undefined,
         },
@@ -331,6 +329,18 @@ export default function JobSearch() {
   useEffect(() => {
     loadSavedJobIds();
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    axiosInstance.get("/jobs/suggestions", { params: { q: debouncedSuggestionQuery.trim() || undefined } })
+      .then(({ data }) => {
+        if (active) setSuggestions(data || { titles: [], roles: [], categories: [], industries: [], locations: [] });
+      })
+      .catch(() => {
+        if (active) setSuggestions({ titles: [], roles: [], categories: [], industries: [], locations: [] });
+      });
+    return () => { active = false; };
+  }, [debouncedSuggestionQuery]);
 
   function showToast(message, onUndo) {
     setToast({ message, onUndo });
@@ -479,8 +489,8 @@ export default function JobSearch() {
     >
       <CandidateNavbar />
 
-      <main className="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
-        <div className="mb-6 flex items-center justify-between">
+      <main className="mx-auto max-w-7xl px-4 py-4 lg:px-6 lg:py-6">
+        <div className="mb-4 flex items-center justify-between">
           <div>
             <h1
               className="text-[22px] font-bold text-stone-900"
@@ -524,7 +534,7 @@ export default function JobSearch() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_300px]">
           {/* ── LEFT: job list ───────────────────────────────────────────── */}
           <div className="order-2 lg:order-1">
             <div className="pr-0 lg:pr-2">
@@ -588,7 +598,7 @@ export default function JobSearch() {
                           delay: Math.min(i * 0.03, 0.3),
                         }}
                         onClick={() => navigate(`/candidate/jobs/${job._id}`)}
-                        className="relative cursor-pointer rounded-[14px] border border-stone-200/70 bg-white p-5 transition-shadow hover:shadow-[0_10px_26px_-18px_rgba(139,30,47,0.35)]"
+                        className="relative cursor-pointer rounded-xl border border-stone-200/70 bg-white p-4 transition-shadow hover:shadow-[0_10px_26px_-18px_rgba(139,30,47,0.35)]"
                       >
                         {job.featured && (
                           <span
@@ -719,7 +729,7 @@ export default function JobSearch() {
           <aside
             className={`order-1 lg:order-2 ${mobileFiltersOpen ? "block" : "hidden lg:block"}`}
           >
-            <div className="sticky top-6 rounded-[18px] border border-stone-200/70 bg-white p-5">
+            <div className="sticky top-4 rounded-xl border border-stone-200/70 bg-white p-4">
               <p
                 className="text-[14px] font-bold text-stone-900"
                 style={{ fontFamily: FONT_DISPLAY }}
@@ -739,16 +749,20 @@ export default function JobSearch() {
                   <input
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
-                    placeholder="Search by title, skill…"
+                    list="job-title-suggestions"
+                    placeholder="Search by job title…"
                     className="w-full rounded-[10px] border border-stone-200 py-2.5 pl-9 pr-3 text-[13px] outline-none transition-colors focus:border-[#8B1E2F]/40"
                   />
+                  <datalist id="job-title-suggestions">
+                    {suggestions.titles.map((title) => <option key={title} value={title} />)}
+                  </datalist>
                 </div>
 
                 <div>
                   <label className="mb-1 block text-[11.5px] font-semibold text-stone-500">
                     Preferred job role
                   </label>
-                  <RoleMultiSelect selected={roles} onChange={setRoles} />
+                  <RoleMultiSelect selected={roles} onChange={setRoles} suggestions={suggestions.roles} />
                 </div>
 
                 <div>
@@ -764,8 +778,12 @@ export default function JobSearch() {
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
                       placeholder="e.g. Bangalore, Remote"
+                      list="job-location-suggestions"
                       className="w-full rounded-[10px] border border-stone-200 py-2.5 pl-9 pr-3 text-[13px] outline-none focus:border-[#8B1E2F]/40"
                     />
+                    <datalist id="job-location-suggestions">
+                      {suggestions.locations.map((value) => <option key={value} value={value} />)}
+                    </datalist>
                   </div>
                 </div>
 
@@ -773,53 +791,44 @@ export default function JobSearch() {
                   <label className="mb-1 block text-[11.5px] font-semibold text-stone-500">
                     Preferred salary
                   </label>
-                  <select
+                  <input
                     value={salaryRange}
                     onChange={(e) => setSalaryRange(e.target.value)}
+                    list="salary-suggestions"
+                    placeholder="e.g. 6 - 10 LPA"
                     className="w-full rounded-[10px] border border-stone-200 px-3 py-2.5 text-[13px] text-stone-700 outline-none focus:border-[#8B1E2F]/40"
-                  >
-                    {SALARY_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
+                  <datalist id="salary-suggestions">
+                    {SALARY_OPTIONS.filter((option) => option.value).map((option) => <option key={option.value} value={option.label} />)}
+                  </datalist>
                 </div>
 
                 <div>
                   <label className="mb-1 block text-[11.5px] font-semibold text-stone-500">
                     Experience level
                   </label>
-                  <select
+                  <input
                     value={experienceLevel}
                     onChange={(e) => setExperienceLevel(e.target.value)}
+                    placeholder="e.g. 2 - 4 years"
                     className="w-full rounded-[10px] border border-stone-200 px-3 py-2.5 text-[13px] text-stone-700 outline-none focus:border-[#8B1E2F]/40"
-                  >
-                    <option value="">Any experience level</option>
-                    {EXPERIENCE_LEVELS.map((lvl) => (
-                      <option key={lvl} value={lvl}>
-                        {lvl}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className="mb-1 block text-[11.5px] font-semibold text-stone-500">
                     Industry
                   </label>
-                  <select
+                  <input
                     value={industry}
                     onChange={(e) => setIndustry(e.target.value)}
+                    list="industry-suggestions"
+                    placeholder="e.g. Information Technology"
                     className="w-full rounded-[10px] border border-stone-200 px-3 py-2.5 text-[13px] text-stone-700 outline-none focus:border-[#8B1E2F]/40"
-                  >
-                    <option value="">Any industry</option>
-                    {INDUSTRY_OPTIONS.map((ind) => (
-                      <option key={ind} value={ind}>
-                        {ind}
-                      </option>
-                    ))}
-                  </select>
+                  />
+                  <datalist id="industry-suggestions">
+                    {[...new Set([...suggestions.industries, ...INDUSTRY_OPTIONS])].map((ind) => <option key={ind} value={ind} />)}
+                  </datalist>
                 </div>
 
                 <div>

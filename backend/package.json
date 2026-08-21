@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "seed:admin": "node seedAdmin.js"
+    "seed:admin": "node seedAdmin.js",
+    "seed:message-test": "node seedMessageTest.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
@@ -28,7 +29,8 @@
     "razorpay": "^2.9.4",
     "sanitize-html": "^2.17.6",
     "socket.io": "^4.8.3",
-    "twilio": "^5.2.2"
+    "twilio": "^5.2.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "mongodb-memory-server": "^9.4.0",

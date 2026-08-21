@@ -96,7 +96,7 @@ export default function RecruiterProfileMenu({ recruiterProfile: initialProfile 
     };
   }, [open]);
 
-  const displayName = user?.name || "Recruiter";
+  const displayName = recruiterProfile?.fullName || recruiterProfile?.name || user?.name || "Recruiter";
   const companyLogoUrl = recruiterProfile?.companyLogoUrl;
 
   const handleLogout = () => {
@@ -134,14 +134,14 @@ export default function RecruiterProfileMenu({ recruiterProfile: initialProfile 
       </button>
 
       {open && (
-        <div className="absolute right-0 z-[9999] mt-2 min-w-[12rem] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-          <div className="px-4 py-3 border-b border-slate-100">
+        <div className="absolute right-0 z-[9999] mt-2 min-w-[12rem] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+          <div className="border-b border-slate-100 px-3 py-2.5">
             <p className="truncate text-sm font-semibold text-slate-900">
               {displayName}
             </p>
             <p className="text-xs text-slate-500">Recruiter account</p>
           </div>
-          <div className="space-y-1 px-2 py-2">
+          <div className="space-y-0.5 px-1.5 py-1.5">
             <button
               onClick={() => {
                 if (recruiterProfile?._id) {
@@ -149,7 +149,7 @@ export default function RecruiterProfileMenu({ recruiterProfile: initialProfile 
                   setOpen(false);
                 }
               }}
-              className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 transition hover:bg-slate-50"
             >
               <User size={16} />
               Recruiter Profile
@@ -157,7 +157,7 @@ export default function RecruiterProfileMenu({ recruiterProfile: initialProfile 
             <Link
               to="/recruiter/company-profile"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 transition hover:bg-slate-50"
             >
               <User size={16} />
               Company profile
@@ -165,7 +165,7 @@ export default function RecruiterProfileMenu({ recruiterProfile: initialProfile 
             <Link
               to="/recruiter/settings"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 transition hover:bg-slate-50"
             >
               <Settings size={16} />
               Settings
@@ -173,7 +173,7 @@ export default function RecruiterProfileMenu({ recruiterProfile: initialProfile 
             <Link
               to="/recruiter/help"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 transition hover:bg-slate-50"
             >
               <HelpCircle size={16} />
               Help center
@@ -181,7 +181,7 @@ export default function RecruiterProfileMenu({ recruiterProfile: initialProfile 
             <Link
               to="/recruiter/invites"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 transition hover:bg-slate-50"
             >
               <Mail size={16} />
               Invites
@@ -195,7 +195,7 @@ export default function RecruiterProfileMenu({ recruiterProfile: initialProfile 
             <button
               type="button"
               onClick={handleLogout}
-              className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 transition hover:bg-slate-50"
             >
               <LogOut size={16} />
               Log out

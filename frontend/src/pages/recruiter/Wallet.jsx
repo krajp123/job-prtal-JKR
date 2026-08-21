@@ -908,7 +908,7 @@ export default function RecruiterWallet() {
     <div className="min-h-screen bg-[#FFF4EF] text-[#1D181A]" style={{ fontFamily: FONT_BODY }}>
       <RecruiterNavbar />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <main className="recruiter-page mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
         {/* Header — slim, no card wrapper */}
         <div className="mb-5 flex items-center justify-between gap-4 border-b border-[#EBC2AE] pb-4">
           <div className="min-w-0">

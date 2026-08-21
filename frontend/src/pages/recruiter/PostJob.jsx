@@ -92,6 +92,7 @@ const SUGGESTED_SKILLS = {
 
 const INITIAL_FORM = {
     title: '',
+    role: '',
     companyName: '',
     companyLogo: null,
     category: '',
@@ -465,6 +466,7 @@ export default function PostJob() {
         const e = {};
         if (index === 0) {
             if (!form.title.trim()) e.title = 'Job title is required.';
+            if (!form.role.trim()) e.role = 'Job role is required.';
             if (!form.companyName.trim()) e.companyName = 'Company name is required.';
             if (!form.employmentType) e.employmentType = 'Choose an employment type.';
             if (!form.workMode) e.workMode = 'Choose a work mode.';
@@ -560,6 +562,7 @@ export default function PostJob() {
         return {
             // Fields the existing /jobs endpoint already understands
             title: form.title.trim(),
+            role: form.role.trim(),
             description,
             location,
             salary,
@@ -643,7 +646,7 @@ export default function PostJob() {
     return (
         <div className="portal-theme min-h-screen" style={{ background: '#FFF7F2' }}>
             <RecruiterNavbar />
-            <main className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
+            <main className="recruiter-page mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
                 {/* Header */}
                 <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
@@ -670,28 +673,28 @@ export default function PostJob() {
                         {/* -------------------------------------------------- */}
                         {stepIndex === 0 && (
                             <div className="space-y-5">
-                                <Field label="Job title" required error={errors.title}>
-                                    <input
-                                        name="title"
-                                        placeholder="e.g. Senior Product Designer"
-                                        value={form.title}
-                                        onChange={(e) => update({ title: e.target.value })}
-                                        className={`${inputClass} ${errors.title ? errorInputClass : ''}`}
-                                    />
-                                </Field>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <Field label="Job title" required error={errors.title}>
+                                        <input
+                                            name="title"
+                                            placeholder="e.g. Senior Product Designer"
+                                            value={form.title}
+                                            onChange={(e) => update({ title: e.target.value })}
+                                            className={`${inputClass} ${errors.title ? errorInputClass : ''}`}
+                                        />
+                                    </Field>
+
+                                    <Field label="Job role" required error={errors.role}>
+                                        <input
+                                            value={form.role}
+                                            onChange={(e) => update({ role: e.target.value })}
+                                            placeholder="e.g. Frontend Developer"
+                                            className={`${inputClass} ${errors.role ? errorInputClass : ''}`}
+                                        />
+                                    </Field>
+                                </div>
 
                                 <div className="grid gap-4 sm:grid-cols-2">
-                                    <Field label="Company name" required error={errors.companyName}>
-                                        <span className="relative block">
-                                            <Building2 size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#A77D8D]" />
-                                            <input
-                                                value={form.companyName}
-                                                onChange={(e) => update({ companyName: e.target.value })}
-                                                placeholder="Company Name"
-                                                className={`${inputClass} pl-9 ${errors.companyName ? errorInputClass : ''}`}
-                                            />
-                                        </span>
-                                    </Field>
                                     <Field label="Job category">
                                         <select
                                             value={form.category}
@@ -704,9 +707,7 @@ export default function PostJob() {
                                             ))}
                                         </select>
                                     </Field>
-                                </div>
 
-                                <div className="grid gap-4 sm:grid-cols-2">
                                     <Field label="Department" hint="Optional">
                                         <input
                                             value={form.department}
@@ -715,10 +716,19 @@ export default function PostJob() {
                                             className={inputClass}
                                         />
                                     </Field>
-                                    {/* <Field label="Company logo" hint="Optional">
-                                        <LogoUpload value={form.companyLogo} onChange={(v) => update({ companyLogo: v })} />
-                                    </Field> */}
                                 </div>
+
+                                <Field label="Company name" required error={errors.companyName}>
+                                    <span className="relative block">
+                                        <Building2 size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#A77D8D]" />
+                                        <input
+                                            value={form.companyName}
+                                            onChange={(e) => update({ companyName: e.target.value })}
+                                            placeholder="Company Name"
+                                            className={`${inputClass} pl-9 ${errors.companyName ? errorInputClass : ''}`}
+                                        />
+                                    </span>
+                                </Field>
 
                                 <Field label="Employment type" required error={errors.employmentType}>
                                     <PillGroup

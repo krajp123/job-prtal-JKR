@@ -125,7 +125,7 @@ export default function AdminLoginThreeD() {
               To <span className="text-[#C75560]"> Admin Login</span>
             </motion.h1>
 
-            <form key={formVersion} onSubmit={(event) => event.preventDefault()} className="space-y-4" noValidate autoComplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore="true">
+            <form key={formVersion} onSubmit={handleSubmit} className="space-y-4" noValidate autoComplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore="true">
               <motion.div variants={fadeUp}>
                 <label htmlFor="admin-email" className="block mb-1.5 text-[13px] font-semibold text-[#374151]">
                   Email
@@ -238,8 +238,7 @@ export default function AdminLoginThreeD() {
               )}
 
               <button
-                type="button"
-                onClick={handleSubmit}
+                type="submit"
                 disabled={isBusy}
                 className={`w-full rounded-xl border-2 py-3 text-[15px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                   status === 'success'
@@ -247,7 +246,7 @@ export default function AdminLoginThreeD() {
                     : 'border-[#C75560] text-[#C75560] hover:bg-[#C75560] hover:text-white'
                 }`}
               >
-                {status === 'submitting' ? 'Checking…' : status === 'success' ? 'Welcome back' : twoFactorRequired ? 'Verify code' : 'Login'}
+                {status === 'success' ? 'Welcome back' : twoFactorRequired ? 'Verify code' : 'Login'}
               </button>
             </form>
 

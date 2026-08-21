@@ -1,4 +1,5 @@
 const Message = require('../models/Message');
+const ChatPreference = require('../models/ChatPreference');
 const mongoose = require('mongoose');
 const { createNotification } = require('../services/notification.service');
 
@@ -53,28 +54,53 @@ exports.startConversation = async (req, res) => {
   }
 };
 
-// POST /api/messages/reply (candidate only) - can only reply, never initiate
+// POST /api/messages/reply - either participant can reply to an existing thread
 exports.reply = async (req, res) => {
   try {
-    const { recruiterId, text } = req.body;
+    const { recruiterId, candidateId, text } = req.body;
+    const isCandidate = req.user.role === 'candidate';
+    const otherUserId = isCandidate ? recruiterId : candidateId;
+    const query = isCandidate
+      ? { recruiter: recruiterId, candidate: req.user.id }
+      : { recruiter: req.user.id, candidate: candidateId };
 
-    const existing = await Message.findOne({ recruiter: recruiterId, candidate: req.user.id });
-    if (!existing) {
-      return res.status(403).json({ error: 'A recruiter must message you first' });
+    const existing = await Message.findOne(query);
+    const recruiterStartedMessage = isCandidate
+      ? await Message.exists({ recruiter: recruiterId, candidate: req.user.id, sender: 'recruiter', startedByRecruiter: true })
+      : existing;
+    if (!existing || (isCandidate && !recruiterStartedMessage)) {
+      return res.status(403).json({ error: 'Conversation does not exist' });
+    }
+
+    if (isCandidate) {
+      const preference = await ChatPreference.findOne({ recruiter: recruiterId, candidate: req.user.id });
+      if (preference?.candidateRepliesEnabled === false) {
+        return res.status(403).json({ error: 'This recruiter has disabled candidate replies.' });
+      }
     }
 
     const conversationOpenUntil = new Date(Date.now() + SEVEN_DAYS_MS);
 
     const message = await Message.create({
-      recruiter: recruiterId,
-      candidate: req.user.id,
-      sender: 'candidate',
+      recruiter: isCandidate ? recruiterId : req.user.id,
+      candidate: isCandidate ? req.user.id : candidateId,
+      sender: isCandidate ? 'candidate' : 'recruiter',
       text,
-      conversationOpenUntil,
+      ...(isCandidate ? { conversationOpenUntil } : {}),
     });
 
-    emitToUser(recruiterId, 'newMessage', message);
-
+    emitToUser(otherUserId, 'newMessage', message);
+    try {
+      await createNotification({
+        ...(isCandidate ? { recruiter: recruiterId } : { candidate: candidateId }),
+        type: 'message',
+        title: isCandidate ? 'New message from a candidate' : 'New message from a recruiter',
+        message: text.length > 80 ? `${text.slice(0, 80)}…` : text,
+        relatedId: isCandidate ? req.user.id : req.user.id,
+      });
+    } catch (notifErr) {
+      console.error('Message notification creation failed:', notifErr.message);
+    }
     res.status(201).json(message);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -85,9 +111,16 @@ exports.reply = async (req, res) => {
 exports.getThread = async (req, res) => {
   try {
     const isCandidate = req.user.role === 'candidate';
+    const preference = await ChatPreference.findOne(
+      isCandidate
+        ? { recruiter: req.params.withUserId, candidate: req.user.id }
+        : { recruiter: req.user.id, candidate: req.params.withUserId }
+    ).lean();
     const query = isCandidate
       ? { candidate: req.user.id, recruiter: req.params.withUserId }
       : { recruiter: req.user.id, candidate: req.params.withUserId };
+    const clearedAt = isCandidate ? preference?.candidateClearedAt : preference?.recruiterClearedAt;
+    if (clearedAt) query.createdAt = { $gt: clearedAt };
 
     const messages = await Message.find(query).sort({ createdAt: 1 });
     res.json(messages);
@@ -108,7 +141,12 @@ exports.myConversations = async (req, res) => {
     const otherCollection = isCandidate ? 'recruiters' : 'candidates';
 
     const conversations = await Message.aggregate([
-      { $match: { [matchField]: new mongoose.Types.ObjectId(req.user.id) } },
+      {
+        $match: {
+          [matchField]: new mongoose.Types.ObjectId(req.user.id),
+          ...(isCandidate ? { startedByRecruiter: true } : {}),
+        },
+      },
       { $sort: { createdAt: -1 } },
       {
         $group: {
@@ -128,6 +166,27 @@ exports.myConversations = async (req, res) => {
       { $sort: { 'lastMessage.createdAt': -1 } },
       {
         $lookup: {
+          from: 'chatpreferences',
+          let: { otherUserId: '$_id', currentUserId: new mongoose.Types.ObjectId(req.user.id) },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $and: [{ $eq: ['$recruiter', '$$currentUserId'] }, { $eq: ['$candidate', '$$otherUserId'] }] },
+                    { $and: [{ $eq: ['$candidate', '$$currentUserId'] }, { $eq: ['$recruiter', '$$otherUserId'] }] },
+                  ],
+                },
+              },
+            },
+            { $project: { _id: 0, recruiterClearedAt: 1, candidateClearedAt: 1 } },
+          ],
+          as: 'chatPreference',
+        },
+      },
+      { $unwind: { path: '$chatPreference', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
           from: otherCollection,
           localField: '_id',
           foreignField: '_id',
@@ -139,9 +198,16 @@ exports.myConversations = async (req, res) => {
         $project: {
           _id: 1,
           lastMessage: 1,
+          'chatPreference.recruiterClearedAt': 1,
+          'chatPreference.candidateClearedAt': 1,
           unreadCount: 1,
           'otherUser.name': 1,
+          'otherUser.email': 1,
+          'otherUser.fullName': 1,
           'otherUser.companyName': 1,
+          'otherUser.profilePictureUrl': 1,
+          'otherUser.profile.profilePictureUrl': 1,
+          'otherUser.companyLogoUrl': 1,
           'otherUser.uniqueId': 1,
         },
       },
@@ -163,6 +229,50 @@ exports.markThreadRead = async (req, res) => {
 
     await Message.updateMany(query, { read: true });
     res.json({ message: 'Thread marked as read' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.clearThread = async (req, res) => {
+  try {
+    const isCandidate = req.user.role === 'candidate';
+    const participantQuery = isCandidate
+      ? { recruiter: req.params.withUserId, candidate: req.user.id }
+      : { recruiter: req.user.id, candidate: req.params.withUserId };
+    const clearField = isCandidate ? 'candidateClearedAt' : 'recruiterClearedAt';
+    await ChatPreference.findOneAndUpdate(
+      participantQuery,
+      { [clearField]: new Date() },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    res.json({ message: 'Chat cleared' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getChatPreference = async (req, res) => {
+  try {
+    const query = req.user.role === 'candidate'
+      ? { recruiter: req.params.candidateId, candidate: req.user.id }
+      : { recruiter: req.user.id, candidate: req.params.candidateId };
+    const preference = await ChatPreference.findOne(query).lean();
+    res.json({ candidateRepliesEnabled: preference?.candidateRepliesEnabled !== false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateChatPreference = async (req, res) => {
+  try {
+    const candidateRepliesEnabled = req.body.candidateRepliesEnabled === true;
+    const preference = await ChatPreference.findOneAndUpdate(
+      { recruiter: req.user.id, candidate: req.params.candidateId },
+      { candidateRepliesEnabled },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    res.json({ candidateRepliesEnabled: preference.candidateRepliesEnabled });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

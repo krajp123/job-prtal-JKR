@@ -11,6 +11,9 @@ const adminJobsController = require('../controllers/admin/adminJobs.controller')
 const adminManagementController = require('../controllers/admin/adminManagement.controller');
 const adminReportsController = require('../controllers/admin/adminReports.controller');
 const adminSettingsController = require('../controllers/admin/adminSettings.controller');
+const adminPaymentSettingsController = require('../controllers/admin/adminPaymentSettings.controller');
+const adminModerationSettingsController = require('../controllers/admin/adminModerationSettings.controller');
+const jobModerationController = require('../controllers/jobModeration.controller');
 
 const { requireAdmin, requireSuperAdmin } = require('../middleware/requireAdmin');
 const { adminLoginLimiter, adminApiLimiter } = require('../middleware/rateLimiter');
@@ -43,8 +46,21 @@ router.get('/dashboard/overview', adminDashboardController.getOverview);
 router.get('/reports', adminReportsController.getReports);
 router.get('/admin/settings', adminSettingsController.get);
 router.put('/admin/settings', requireSuperAdmin, adminSettingsController.update);
+router.get('/admin/payment-settings', adminPaymentSettingsController.get);
+router.patch('/admin/payment-settings', requireSuperAdmin, adminPaymentSettingsController.update);
+router.put('/admin/payment-settings/razorpay-key', requireSuperAdmin, adminPaymentSettingsController.updateKey);
+router.get('/admin/payment-plans', adminPaymentSettingsController.listPlans);
+router.post('/admin/payment-plans', requireSuperAdmin, adminPaymentSettingsController.createPlan);
+router.patch('/admin/payment-plans/:id', requireSuperAdmin, adminPaymentSettingsController.updatePlan);
+router.delete('/admin/payment-plans/:id', requireSuperAdmin, adminPaymentSettingsController.deletePlan);
+router.get('/admin/moderation-settings', adminModerationSettingsController.get);
+router.patch('/admin/moderation-settings', requireSuperAdmin, adminModerationSettingsController.update);
+router.get('/moderation/reports', jobModerationController.listReports);
+router.patch('/moderation/reports/:id', requireSuperAdmin, jobModerationController.reviewReport);
 router.post('/admin/settings/logo', requireSuperAdmin, uploadProfilePicture.single('logo'), adminSettingsController.uploadLogo);
 router.get('/admin/security/audit', adminSettingsController.getAudit);
+router.get('/admin/security/audit/export', adminSettingsController.exportAudit);
+router.patch('/admin/security/session-timeout', requireSuperAdmin, adminSettingsController.updateSessionTimeout);
 router.get('/admin/notifications', async (req, res) => {
 	try {
 		const { listAdminNotifications } = require('../services/adminNotification.service');
@@ -73,6 +89,15 @@ router.patch('/admin/notifications/read-all', async (req, res) => {
 		const AdminNotification = require('../models/AdminNotification');
 		await AdminNotification.updateMany({ admin: req.admin.id, read: false }, { read: true });
 		res.json({ message: 'All admin notifications marked as read' });
+	} catch (error) {
+		res.status(500).json({ error: error.message });
+	}
+});
+router.delete('/admin/notifications', async (req, res) => {
+	try {
+		const AdminNotification = require('../models/AdminNotification');
+		const result = await AdminNotification.deleteMany({ admin: req.admin.id });
+		res.json({ message: 'Admin notifications cleared', deletedCount: result.deletedCount || 0 });
 	} catch (error) {
 		res.status(500).json({ error: error.message });
 	}

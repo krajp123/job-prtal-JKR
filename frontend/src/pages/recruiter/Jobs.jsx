@@ -1341,7 +1341,7 @@ export default function RecruiterJobs() {
         <div className="portal-theme min-h-screen" style={{ background: '#FFF7F2' }}>
             <RecruiterNavbar />
 
-            <main className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
+            <main className="recruiter-page mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
                 {/* Header */}
                 <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>

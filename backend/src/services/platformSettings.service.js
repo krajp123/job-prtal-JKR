@@ -15,12 +15,17 @@ const DEFAULT_SETTINGS = {
     lowWalletAlert: true,
     smsAlerts: false,
   },
+  moderation: {
+    flaggedKeywords: ['work from home guaranteed', 'no interview needed', 'pay to apply'],
+    autoSuspendThreshold: 5,
+  },
   candidateRegistrationFee: PRICING.CANDIDATE_REGISTRATION,
   recruiterRegistrationFee: PRICING.RECRUITER_REGISTRATION,
   resumeDownloadCharge: PRICING.RESUME_DOWNLOAD,
   sessionTimeout: 30,
   gstEnabled: true,
   gstRate: DEFAULT_GST_RATE,
+  razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
 };
 
 async function getPlatformSettings() {

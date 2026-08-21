@@ -15,12 +15,17 @@ const platformSettingsSchema = new mongoose.Schema(
       lowWalletAlert: { type: Boolean, default: true },
       smsAlerts: { type: Boolean, default: false },
     },
+    moderation: {
+      flaggedKeywords: { type: [String], default: ['work from home guaranteed', 'no interview needed', 'pay to apply'] },
+      autoSuspendThreshold: { type: Number, min: 1, default: 5 },
+    },
     candidateRegistrationFee: { type: Number, min: 0, default: 9 },
     recruiterRegistrationFee: { type: Number, min: 0, default: 110 },
     resumeDownloadCharge: { type: Number, min: 0, default: 9 },
     sessionTimeout: { type: Number, min: 1, default: 30 },
     gstEnabled: { type: Boolean, default: true },
     gstRate: { type: Number, min: 0, default: 18 },
+    razorpayKeyId: { type: String, default: process.env.RAZORPAY_KEY_ID || '' },
   },
   { timestamps: true }
 );

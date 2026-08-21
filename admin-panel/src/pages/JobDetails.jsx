@@ -355,7 +355,10 @@ export default function JobDetails() {
         setApplicationsLoading(true);
         try {
           const appResponse = await adminAxiosInstance.get(`/applications?jobId=${jobId}`);
-          setApplications(Array.isArray(appResponse.data) ? appResponse.data : []);
+          const applicationData = appResponse.data;
+          setApplications(
+            Array.isArray(applicationData) ? applicationData : applicationData?.applications || []
+          );
         } catch (appErr) {
           console.error('Failed to load applications:', appErr);
           setApplications([]);

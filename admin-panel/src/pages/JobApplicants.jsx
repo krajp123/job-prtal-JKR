@@ -30,7 +30,10 @@ export default function JobApplicants() {
         ]);
 
         setJob(jobResponse.data || null);
-        setApplications(Array.isArray(appsResponse.data) ? appsResponse.data : []);
+        const applicationData = appsResponse.data;
+        setApplications(
+          Array.isArray(applicationData) ? applicationData : applicationData?.applications || []
+        );
       } catch (err) {
         console.error('Failed to load job applicants:', err);
         setError(err.response?.data?.error || 'Failed to load applicants');

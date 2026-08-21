@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const AdminSession = require('../models/AdminSession');
-
-const SESSION_TTL_MS = 30 * 60 * 1000;
+const { getPlatformSettings } = require('./platformSettings.service');
 
 function getRequestIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || '';
@@ -19,13 +18,16 @@ function getDevice(userAgent = '') {
 async function createAdminSession(req, adminId) {
   const tokenId = crypto.randomBytes(24).toString('hex');
   const userAgent = req.get('user-agent') || '';
+  const settings = await getPlatformSettings();
+  const sessionTimeoutMinutes = Number(settings.sessionTimeout) || 30;
+  const expiresAt = new Date(Date.now() + sessionTimeoutMinutes * 60 * 1000);
   const session = await AdminSession.create({
     admin: adminId,
     tokenId,
     device: getDevice(userAgent),
     userAgent,
     ip: getRequestIp(req),
-    expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+    expiresAt,
   });
   return session;
 }

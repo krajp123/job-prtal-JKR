@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Award,
   Ban,
@@ -362,6 +362,7 @@ function EmptyDetail() {
 }
 
 export default function Applicants() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   // Stores the last applicationId we already handled, not just "did we run
   // once" — so a NEW ?applicationId= while this page is already mounted
@@ -930,7 +931,7 @@ export default function Applicants() {
   return (
     <div className="portal-theme overflow-x-hidden">
       <RecruiterNavbar />
-      <main className="mx-auto w-full max-w-7xl px-5  sm:px-8 sm:py-4">
+      <main className="recruiter-page mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-5">
         {/* Header + job switcher + KPI strip + search/filters: sticky, stays fixed while the list below scrolls with the page */}
         <div className="sticky top-0 z-30 -mx-5 bg-[#FFF9F5] px-5 pb-4 sm:-mx-8 sm:px-8">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -1581,6 +1582,7 @@ function CandidateDetail({
   isUpdatingStatus,
   statusUpdateError,
 }) {
+  const navigate = useNavigate();
   if (!application) return null;
   const c = application.candidate || {};
   const profile = c.profile || {};
@@ -1673,7 +1675,11 @@ function CandidateDetail({
           <IconAction icon={Sparkles} label="Portfolio" href={portfolioUrl} disabled={!portfolioUrl} />
           <IconAction icon={GithubIcon} label="GitHub" href={githubUrl} disabled={!githubUrl} />
           <IconAction icon={Mail} label="Email" href={email ? `mailto:${email}` : undefined} disabled={!email} />
-          <IconAction icon={MessageCircle} label="Chat" onClick={() => alert(`Would open a chat thread with ${c.name || 'this candidate'}`)} />
+          <IconAction
+            icon={MessageCircle}
+            label="Message"
+            onClick={() => navigate(`/recruiter/messages?candidateId=${encodeURIComponent(c._id)}&candidateName=${encodeURIComponent(c.name || 'Candidate')}`)}
+          />
         </div>
       </div>
 

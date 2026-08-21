@@ -1,6 +1,7 @@
 const PlatformSettings = require('../../models/PlatformSettings');
 const { DEFAULT_SETTINGS, getPlatformSettings } = require('../../services/platformSettings.service');
 const { cloudinary, isCloudinaryConfigured } = require('../../config/cloudinary');
+const XLSX = require('xlsx');
 
 function normalizeSettings(body = {}) {
   const paymentSettings = body.payments || body;
@@ -77,12 +78,103 @@ exports.update = async (req, res) => {
 exports.getAudit = async (req, res) => {
   try {
     const AdminAuditLog = require('../../models/AdminAuditLog');
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number.parseInt(req.query.pageSize, 10) || 10));
+    const query = {};
+    if (req.query.date) {
+      const start = new Date(`${req.query.date}T00:00:00.000Z`);
+      const end = new Date(start);
+      end.setUTCDate(end.getUTCDate() + 1);
+      if (Number.isNaN(start.getTime())) return res.status(400).json({ error: 'Invalid audit date' });
+      query.createdAt = { $gte: start, $lt: end };
+    }
+    const [items, total] = await Promise.all([
+      AdminAuditLog.find(query)
+        .populate('admin', 'name email role')
+        .sort({ createdAt: -1, _id: -1 })
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .lean(),
+      AdminAuditLog.countDocuments(query),
+    ]);
+    res.json({ items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.updateSessionTimeout = async (req, res) => {
+  try {
+    const sessionTimeout = Number(req.body.sessionTimeout);
+    if (!Number.isInteger(sessionTimeout) || sessionTimeout < 1 || sessionTimeout > 1440) {
+      return res.status(400).json({ error: 'Session timeout must be a whole number from 1 to 1440 minutes' });
+    }
+
+    const settings = await PlatformSettings.findOneAndUpdate(
+      { key: 'default' },
+      { $set: { sessionTimeout }, $setOnInsert: { key: 'default' } },
+      { new: true, upsert: true, runValidators: true }
+    ).lean();
+
+    const { logAdminAction } = require('../../services/audit.service');
+    await logAdminAction({
+      adminId: req.admin.id,
+      action: 'UPDATE_ADMIN_SESSION_TIMEOUT',
+      targetType: 'PlatformSettings',
+      targetId: settings._id,
+      details: { sessionTimeout },
+      ip: req.ip,
+    });
+    res.json({ sessionTimeout });
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};
+
+exports.exportAudit = async (req, res) => {
+  try {
+    const AdminAuditLog = require('../../models/AdminAuditLog');
     const items = await AdminAuditLog.find()
       .populate('admin', 'name email role')
       .sort({ createdAt: -1, _id: -1 })
-      .limit(30)
+      .limit(10000)
       .lean();
-    res.json({ items });
+    const formatAuditDate = (value) => value
+      ? new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : '';
+    const formatAuditTime = (value) => value
+      ? new Date(value).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+      : '';
+    const rows = [
+      ['Date', 'Time', 'Admin', 'Action'],
+      ...items.map((item) => [
+        formatAuditDate(item.createdAt),
+        formatAuditTime(item.createdAt),
+        item.admin?.name || 'Unknown admin',
+        item.action || '',
+      ]),
+    ];
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    worksheet['!cols'] = [{ wch: 16 }, { wch: 14 }, { wch: 28 }, { wch: 36 }];
+    worksheet['!autofilter'] = { ref: `A1:D${rows.length}` };
+    worksheet['!freeze'] = { xSplit: 0, ySplit: 1 };
+    const headerStyle = {
+      font: { bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: 'C75560' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+    };
+    ['A1', 'B1', 'C1', 'D1'].forEach((cell) => { worksheet[cell].s = headerStyle; });
+    for (let row = 2; row <= rows.length; row += 1) {
+      ['A', 'B', 'C', 'D'].forEach((column) => {
+        worksheet[`${column}${row}`].s = { alignment: { horizontal: 'left', vertical: 'center' } };
+      });
+    }
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Audit Log');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
+    res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .attachment(`admin-audit-${new Date().toISOString().slice(0, 10)}.xlsx`)
+      .send(buffer);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

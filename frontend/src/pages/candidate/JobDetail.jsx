@@ -11,6 +11,7 @@ import {
     CheckCircle2,
     Clock,
     ExternalLink,
+    Flag,
     GraduationCap,
     IndianRupee,
     ListChecks,
@@ -420,6 +421,10 @@ export default function JobDetail() {
     const [applied, setApplied] = useState(false);
     const [applicationStatus, setApplicationStatus] = useState('');
     const [applyError, setApplyError] = useState('');
+    const [reporting, setReporting] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
+    const [reportReason, setReportReason] = useState('');
+    const [reportMessage, setReportMessage] = useState('');
     const [followCompany, setFollowCompany] = useState(false);
     const [now, setNow] = useState(() => Date.now());
 
@@ -510,6 +515,23 @@ export default function JobDetail() {
             setApplyError(err.response?.data?.error || 'Could not withdraw. Backend route may be missing.');
         } finally {
             setWithdrawing(false);
+        }
+    }
+
+    async function reportJob() {
+        if (!job?._id || reporting) return;
+        if (!reportReason.trim()) return;
+        setReporting(true);
+        setReportMessage('');
+        try {
+            await axiosInstance.post(`/jobs/${job._id}/report`, { reason: reportReason.trim() });
+            setReportReason('');
+            setReportOpen(false);
+            setReportMessage('Report submitted. Our team will review this job.');
+        } catch (err) {
+            setReportMessage(err.response?.data?.error || 'Could not submit the report. Please try again.');
+        } finally {
+            setReporting(false);
         }
     }
 
@@ -675,6 +697,17 @@ export default function JobDetail() {
                                             {isSaved ? 'Saved' : 'Save'}
                                         </button>
 
+                                        <button
+                                            type="button"
+                                            onClick={() => { setReportMessage(''); setReportOpen(true); }}
+                                            disabled={reporting}
+                                            title="Report this job"
+                                            className="flex items-center justify-center gap-2 rounded-full border border-red-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-70"
+                                        >
+                                            <Flag size={14} />
+                                            Report
+                                        </button>
+
                                         {applied ? (
                                             <>
                                                 <span
@@ -723,6 +756,11 @@ export default function JobDetail() {
 
                                 {applyError && (
                                     <p className="mt-3 text-[12.5px] font-medium text-red-600">{applyError}</p>
+                                )}
+                                {reportMessage && (
+                                    <p className={`mt-3 text-[12.5px] font-medium ${reportMessage.startsWith('Report submitted') ? 'text-green-700' : 'text-red-600'}`}>
+                                        {reportMessage}
+                                    </p>
                                 )}
 
                                 <label className="mt-4 flex items-center gap-2 text-[12.5px] text-stone-600">
@@ -860,6 +898,41 @@ export default function JobDetail() {
                         </motion.div>
                 ) : null}
             </main>
+
+            {reportOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true" aria-labelledby="report-job-title">
+                    <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <h2 id="report-job-title" className="text-[17px] font-bold text-stone-900" style={{ fontFamily: FONT_DISPLAY }}>
+                                    Report this job
+                                </h2>
+                                <p className="mt-1 text-[12.5px] leading-5 text-stone-500">
+                                    Tell us what looks wrong with this job posting.
+                                </p>
+                            </div>
+                            <button type="button" onClick={() => setReportOpen(false)} aria-label="Close report dialog" className="text-xl leading-none text-stone-400 hover:text-stone-700">×</button>
+                        </div>
+                        <label className="mt-5 block">
+                            <span className="mb-1.5 block text-[12px] font-semibold text-stone-700">Reason</span>
+                            <textarea
+                                autoFocus
+                                value={reportReason}
+                                onChange={(event) => setReportReason(event.target.value)}
+                                placeholder="Example: This job asks applicants for money."
+                                rows={4}
+                                className="w-full resize-none rounded-xl border border-stone-200 px-3 py-2.5 text-[13px] text-stone-800 outline-none focus:border-[#8B1E2F] focus:ring-2 focus:ring-[#8B1E2F]/10"
+                            />
+                        </label>
+                        <div className="mt-5 flex justify-end gap-2">
+                            <button type="button" onClick={() => setReportOpen(false)} className="rounded-full border border-stone-200 px-4 py-2 text-[12.5px] font-semibold text-stone-600 hover:bg-stone-50">Cancel</button>
+                            <button type="button" onClick={reportJob} disabled={reporting || reportReason.trim().length < 3} className="rounded-full bg-[#8B1E2F] px-5 py-2 text-[12.5px] font-semibold text-white hover:bg-[#701525] disabled:cursor-not-allowed disabled:opacity-50">
+                                {reporting ? 'Submitting…' : 'Submit report'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

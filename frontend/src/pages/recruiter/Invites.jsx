@@ -47,7 +47,7 @@ export default function RecruiterInvites() {
     <div className="min-h-screen bg-[#FFF8F2] text-[#1D181A]" style={{ fontFamily: FONT_DISPLAY }}>
       <RecruiterNavbar />
 
-      <main className="mx-auto w-full max-w-4xl px-5 py-8 sm:px-8 sm:py-10">
+      <main className="recruiter-page mx-auto w-full max-w-4xl px-4 py-5 sm:px-6 sm:py-6">
         <h1 className="text-2xl font-bold">Invites</h1>
         <p className="mt-2 text-sm text-slate-600">Invites from other recruiters to join their team.</p>
 

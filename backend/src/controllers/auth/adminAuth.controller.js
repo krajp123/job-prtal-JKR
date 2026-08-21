@@ -7,6 +7,10 @@ const { sendChallenge, verifyChallenge } = require('../../services/adminTwoFacto
 const { createAdminSession } = require('../../services/adminSession.service');
 const AdminSession = require('../../models/AdminSession');
 
+function sessionTokenLifetime(session) {
+  return Math.max(1, Math.ceil((new Date(session.expiresAt).getTime() - Date.now()) / 1000));
+}
+
 // There is deliberately NO public "admin register" route.
 // Admin accounts are created manually (via a seed script or directly by a
 // superadmin through an authenticated admin-only endpoint) - never through
@@ -54,12 +58,14 @@ exports.login = async (req, res) => {
     }
 
     const session = await createAdminSession(req, admin._id);
-    const token = generateAdminToken({ id: admin._id, role: admin.role, sessionId: session.tokenId });
+    const token = generateAdminToken({ id: admin._id, role: admin.role, sessionId: session.tokenId, expiresIn: sessionTokenLifetime(session) });
 
     res.json({
       token,
       id: admin._id,
       name: admin.name,
+      email: admin.email,
+      phone: admin.phone || '',
       role: admin.role,
       profilePictureUrl: admin.profilePictureUrl || null,
       sessionId: session.tokenId,
@@ -78,12 +84,14 @@ exports.verifyTwoFactor = async (req, res) => {
     if (!admin || !admin.isActive) return res.status(401).json({ error: 'Admin account is inactive' });
 
     const session = await createAdminSession(req, admin._id);
-    const token = generateAdminToken({ id: admin._id, role: admin.role, sessionId: session.tokenId });
+    const token = generateAdminToken({ id: admin._id, role: admin.role, sessionId: session.tokenId, expiresIn: sessionTokenLifetime(session) });
     await logAdminAction({ adminId: admin._id, action: 'ADMIN_2FA_LOGIN', targetType: 'Admin', targetId: admin._id, ip: req.ip });
     res.json({
       token,
       id: admin._id,
       name: admin.name,
+      email: admin.email,
+      phone: admin.phone || '',
       role: admin.role,
       profilePictureUrl: admin.profilePictureUrl || null,
       sessionId: session.tokenId,
@@ -125,7 +133,7 @@ exports.revokeSession = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, phone = '' } = req.body;
     if (!name?.trim() || !email?.trim()) return res.status(400).json({ error: 'Name and email are required' });
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -133,12 +141,17 @@ exports.updateProfile = async (req, res) => {
       return res.status(400).json({ error: 'Enter a valid email address' });
     }
 
+    const normalizedPhone = String(phone).trim();
+    if (normalizedPhone && !/^(?:\+91[\s-]?)?[6-9]\d{9}$/.test(normalizedPhone)) {
+      return res.status(400).json({ error: 'Enter a valid 10-digit Indian mobile number' });
+    }
+
     const existingAdmin = await Admin.findOne({ email: normalizedEmail, _id: { $ne: req.admin.id } });
     if (existingAdmin) return res.status(409).json({ error: 'An admin with this email already exists' });
 
     const admin = await Admin.findByIdAndUpdate(
       req.admin.id,
-      { $set: { name: name.trim(), email: normalizedEmail } },
+      { $set: { name: name.trim(), email: normalizedEmail, phone: normalizedPhone.slice(0, 30) } },
       { new: true, runValidators: true }
     ).select('-passwordHash');
     if (!admin) return res.status(404).json({ error: 'Admin account not found' });
@@ -168,6 +181,7 @@ exports.changePassword = async (req, res) => {
     admin.failedLoginAttempts = 0;
     admin.lockUntil = undefined;
     await admin.save();
+    await AdminSession.deleteMany({ admin: admin._id });
     await logAdminAction({ adminId: admin._id, action: 'CHANGE_ADMIN_PASSWORD', targetType: 'Admin', targetId: admin._id, ip: req.ip });
     res.json({ message: 'Password updated successfully' });
   } catch (err) {

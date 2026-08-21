@@ -167,7 +167,7 @@ export default function RecruiterCompanyProfile() {
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-10">
+      <main className="recruiter-page mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-6">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#C75560]">Recruiter workspace</p>

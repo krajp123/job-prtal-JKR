@@ -1,4 +1,5 @@
 const Job = require('../models/Job');
+const Recruiter = require('../models/Recruiter');
 const Candidate = require('../models/Candidate');
 const Application = require('../models/Application');
 const JobReopenRequest = require('../models/JobReopenRequest');
@@ -113,14 +114,33 @@ function collectJobKeywords(job) {
   return new Set(rawKeywords.filter((token) => token && token.length >= 3 && !STOP_WORDS.has(token)));
 }
 
+function findModerationMatches(job, flaggedKeywords = []) {
+  const searchableText = [job.title, job.description, job.location, job.salary, job.experienceLevel, ...(job.skillsRequired || [])]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return flaggedKeywords.filter((keyword) => {
+    const normalized = String(keyword || '').trim().toLowerCase();
+    return normalized && searchableText.includes(normalized);
+  });
+}
+
 // POST /api/jobs (recruiter only)
 exports.create = async (req, res) => {
   try {
-    const { title, description, location, salary, skillsRequired, experienceLevel, descriptionSections } = req.body;
+    const { title, role, category, description, location, salary, skillsRequired, experienceLevel, descriptionSections } = req.body;
+    const recruiter = await Recruiter.findById(req.user.id).select('industry');
     const settings = await getPlatformSettings();
+    const moderationMatches = findModerationMatches(
+      { title, description, location, salary, experienceLevel, skillsRequired },
+      settings.moderation?.flaggedKeywords || []
+    );
 
     const job = await Job.create({
       title,
+      role,
+      category,
+      industry: recruiter?.industry || req.body.industry,
       description,
       descriptionSections: sanitizeDescriptionSections(descriptionSections),
       location,
@@ -128,7 +148,9 @@ exports.create = async (req, res) => {
       skillsRequired,
       experienceLevel,
       postedBy: req.user.id,
-      status: settings.autoApproveJobs ? 'open' : 'draft',
+      status: moderationMatches.length ? 'draft' : settings.autoApproveJobs ? 'open' : 'draft',
+      moderationStatus: moderationMatches.length ? 'flagged' : 'clear',
+      moderationMatches,
     });
 
     res.status(201).json(job);
@@ -140,15 +162,64 @@ exports.create = async (req, res) => {
 // GET /api/jobs (public listing with search/filter)
 exports.list = async (req, res) => {
   try {
-    const { skill, location, experienceLevel } = req.query;
+    const { skill, title, role, category, industry, location, experienceLevel, salary, salaryRange, datePosted } = req.query;
     const query = { status: 'open' };
 
     if (skill) query.skillsRequired = { $regex: skill, $options: 'i' };
+    if (title) query.title = { $regex: escapeRegex(title), $options: 'i' };
+    if (role) query.role = { $regex: escapeRegex(role), $options: 'i' };
+    if (category) {
+      const categories = String(category).split(',').map((value) => value.trim()).filter(Boolean);
+      query.category = { $regex: categories.map(escapeRegex).join('|'), $options: 'i' };
+    }
+    if (industry) {
+      const industryRegex = { $regex: escapeRegex(industry), $options: 'i' };
+      const matchingRecruiters = await Recruiter.find({ industry: industryRegex }).distinct('_id');
+      query.$or = [
+        { industry: industryRegex },
+        { postedBy: { $in: matchingRecruiters } },
+      ];
+    }
     if (location) query.location = { $regex: location, $options: 'i' };
-    if (experienceLevel) query.experienceLevel = experienceLevel;
+    if (experienceLevel) query.experienceLevel = { $regex: escapeRegex(experienceLevel), $options: 'i' };
+    if (salary || salaryRange) {
+      const salaryText = salary || salaryRange;
+      query.salary = { $regex: escapeRegex(salaryText), $options: 'i' };
+    }
+    if (datePosted) {
+      const days = Number(datePosted);
+      if (Number.isFinite(days) && days > 0) {
+        query.createdAt = { $gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000) };
+      }
+    }
 
-    const jobs = await Job.find(query).populate('postedBy', 'companyName companyLogoUrl');
+    const jobs = await Job.find(query).sort({ createdAt: -1 }).populate('postedBy', 'companyName companyLogoUrl industry');
     res.json(jobs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// GET /api/jobs/suggestions?q=developer (public filter suggestions)
+exports.suggestions = async (req, res) => {
+  try {
+    const search = String(req.query.q || '').trim();
+    const jobs = await Job.find({ status: 'open' })
+      .select('title role category industry location')
+      .populate('postedBy', 'industry')
+      .sort({ createdAt: -1 })
+      .limit(300)
+      .lean();
+    const matcher = search ? new RegExp(escapeRegex(search), 'i') : null;
+    const uniqueMatches = (values) => [...new Set(values.filter((value) => value && (!matcher || matcher.test(value))))].slice(0, 12);
+
+    res.json({
+      titles: uniqueMatches(jobs.map((job) => job.title)),
+      roles: uniqueMatches(jobs.map((job) => job.role)),
+      categories: uniqueMatches(jobs.map((job) => job.category)),
+      industries: uniqueMatches(jobs.map((job) => job.industry || job.postedBy?.industry)),
+      locations: uniqueMatches(jobs.flatMap((job) => String(job.location || '').split(',').map((value) => value.trim()))),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -304,7 +375,7 @@ exports.myJobs = async (req, res) => {
 // PATCH /api/jobs/:id (recruiter only)
 exports.update = async (req, res) => {
   try {
-    const allowedFields = ['title', 'description', 'descriptionSections', 'location', 'salary', 'skillsRequired', 'experienceLevel'];
+    const allowedFields = ['title', 'role', 'category', 'industry', 'description', 'descriptionSections', 'location', 'salary', 'skillsRequired', 'experienceLevel'];
     const updates = {};
 
     for (const field of allowedFields) {
@@ -327,6 +398,15 @@ exports.update = async (req, res) => {
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No valid fields were provided to update.' });
     }
+
+    const currentJob = await Job.findOne({ _id: req.params.id, postedBy: req.user.id }).lean();
+    if (!currentJob) return res.status(404).json({ error: 'Job not found' });
+    const moderationInput = { ...currentJob, ...updates };
+    const settings = await getPlatformSettings();
+    const moderationMatches = findModerationMatches(moderationInput, settings.moderation?.flaggedKeywords || []);
+    updates.moderationMatches = moderationMatches;
+    updates.moderationStatus = moderationMatches.length ? 'flagged' : 'clear';
+    if (moderationMatches.length) updates.status = 'draft';
 
     const job = await Job.findOneAndUpdate(
       { _id: req.params.id, postedBy: req.user.id },

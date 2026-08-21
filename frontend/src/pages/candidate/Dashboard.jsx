@@ -55,6 +55,49 @@ const STATUS_STYLES = {
     rejected: { label: 'Not Selected', bg: '#FBE9E9', text: '#B23B3B', icon: XCircle },
 };
 
+const PROFILE_COMPLETION_WEIGHTS = {
+    photo: 6,
+    headline: 5,
+    about: 6,
+    contact: 5,
+    skills: 11,
+    experience: 18,
+    education: 11,
+    certifications: 5,
+    languages: 4,
+    projects: 2,
+    portfolio: 1,
+    resume: 14,
+    social: 11,
+    preferences: 1,
+};
+
+function calculateProfileCompleteness(profile) {
+    const details = profile?.profile || {};
+    const socialLinks = profile?.socialLinks || {};
+    const completed = {
+        photo: Boolean(details.profilePictureUrl),
+        headline: Boolean(details.headline),
+        about: Boolean(details.about),
+        contact: Boolean(details.location || details.phone),
+        skills: Boolean(details.skills?.length),
+        experience: Boolean(details.experience?.length),
+        education: Boolean(details.education?.length),
+        certifications: Boolean(details.certifications?.length),
+        languages: Boolean(details.languages?.length),
+        projects: Boolean(details.projects?.length),
+        portfolio: Boolean(details.portfolio?.length),
+        resume: Boolean(details.resumeUrl),
+        social: Boolean(socialLinks.github || socialLinks.linkedin || socialLinks.website),
+        preferences: Boolean(details.workPreferences),
+    };
+
+    return Object.entries(PROFILE_COMPLETION_WEIGHTS).reduce(
+        (total, [key, weight]) => total + (completed[key] ? weight : 0),
+        0,
+    );
+}
+
 // ---- Social icons ---------------------------------------------------
 // lucide-react v1.0 removed all brand/logo icons (Facebook, Instagram,
 // LinkedIn, Twitter, YouTube, Github, etc.) for trademark reasons, so these
@@ -447,9 +490,7 @@ export default function Dashboard() {
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .slice(0, 8);
 
-    // Profile completeness — falls back to a conservative estimate if the
-    // backend doesn't send a precomputed percentage yet.
-    const completeness = Math.min(100, Math.max(0, Math.round(profile?.profileCompleteness ?? 20)));
+    const completeness = calculateProfileCompleteness(profile);
 
     const missingItems = [
         { key: 'resume', label: 'Upload your resume', done: Boolean(profile?.profile?.resumeUrl) },
@@ -593,7 +634,7 @@ export default function Dashboard() {
                 )}
             </AnimatePresence>
 
-            <main className="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
+            <main className="mx-auto max-w-7xl px-4 py-4 lg:px-6 lg:py-6">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center gap-3 py-24 text-[#6B6259]">
                         <Loader2 size={28} className="animate-spin" color={MAROON} />
@@ -628,7 +669,7 @@ export default function Dashboard() {
 
                 {!loading && !error && (
                     <div
-                        className={`grid items-start gap-6 transition-all duration-300 lg:gap-7 ${
+                        className={`grid items-start gap-4 transition-all duration-300 lg:gap-5 ${
                             workspaceOpen ? 'lg:grid-cols-[280px_minmax(0,1fr)]' : 'lg:grid-cols-[64px_minmax(0,1fr)]'
                         }`}
                     >
@@ -720,7 +761,7 @@ export default function Dashboard() {
                             )}
 
                             {/* Gamification: badges + streaks
-                            <div className="mb-6">
+                            <div className="mb-4">
                                 <GamificationPanel gamification={profile?.gamification} isHired={isHired} />
                             </div> */}
 
@@ -768,7 +809,7 @@ export default function Dashboard() {
                             </div>
 
                             {/* Top Companies carousel */}
-                            <div id="top-companies" className="mb-6">
+                            <div id="top-companies" className="mb-4">
                                 <CarouselSection
                                     title="Top Companies"
                                     viewAllLink="/candidate/companies"
@@ -797,8 +838,8 @@ export default function Dashboard() {
                             </div>
 
                             {/* Recent applications */}
-                            <div className="candidate-dashboard-content-card p-5 sm:p-6">
-                                <div className="mb-4 flex items-center justify-between">
+                            <div className="candidate-dashboard-content-card p-4 sm:p-5">
+                                <div className="mb-3 flex items-center justify-between">
                                     <h2 className="text-[16px] font-bold text-stone-900" style={{ fontFamily: FONT_DISPLAY }}>
                                         Recent Applications
                                     </h2>

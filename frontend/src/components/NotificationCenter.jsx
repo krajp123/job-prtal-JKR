@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bell, MessageCircle, Briefcase, Megaphone, CheckCheck, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { connectSocket } from '../socket';
 import { FONT_DISPLAY, MAROON, MAROON_DARK } from '../theme';
@@ -23,6 +24,7 @@ function timeAgo(dateStr) {
 }
 
 export default function NotificationCenter({ className = '' }) {
+    const navigate = useNavigate();
     const [open, setOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -66,6 +68,24 @@ export default function NotificationCenter({ className = '' }) {
             await axiosInstance.patch(`/notifications/${id}/read`);
         } catch {
             load(); // resync on failure
+        }
+    }
+
+    async function openNotification(notification) {
+        if (!notification.read) await markOneRead(notification._id);
+        if (notification.type !== 'message' || !notification.relatedId) return;
+
+        let user = null;
+        try {
+            user = JSON.parse(localStorage.getItem('user') || 'null');
+        } catch {
+            user = null;
+        }
+        setOpen(false);
+        if (user?.role === 'candidate') {
+            navigate(`/candidate/messages?recruiterId=${notification.relatedId}`);
+        } else if (user?.role === 'recruiter') {
+            navigate(`/recruiter/messages?candidateId=${notification.relatedId}`);
         }
     }
 
@@ -164,7 +184,7 @@ export default function NotificationCenter({ className = '' }) {
                                     return (
                                         <button
                                             key={n._id}
-                                            onClick={() => !n.read && markOneRead(n._id)}
+                                            onClick={() => openNotification(n)}
                                             className="flex w-full items-start gap-3 border-b border-stone-50 px-4 py-3 text-left transition-colors hover:bg-stone-50"
                                             style={!n.read ? { background: `${MAROON}08` } : {}}
                                         >

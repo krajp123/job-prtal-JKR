@@ -752,7 +752,7 @@ export default function RecruiterSettings() {
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
+      <main className="recruiter-page mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
         <div className="mb-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#C75560]">Recruiter workspace</p>
           <h1 className="mt-2 text-3xl font-bold text-[#1D181A]">Settings</h1>

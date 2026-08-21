@@ -7,6 +7,7 @@ const Payment = require('../../models/Payment');
 const AdminAuditLog = require('../../models/AdminAuditLog');
 const { logAdminAction } = require('../../services/audit.service');
 const { sendPasswordResetLinkEmail, sendCandidateAccountStatusEmail } = require('../../services/email.service');
+const JobReport = require('../../models/JobReport');
 
 function buildDateSeries(days) {
   const series = [];
@@ -637,6 +638,38 @@ exports.activateRecruiter = async (req, res) => {
     ).select('-passwordHash');
 
     if (!recruiter) return res.status(404).json({ error: 'Recruiter not found' });
+
+    const moderatedJobs = await Job.find({
+      postedBy: recruiter._id,
+      status: 'draft',
+      moderationStatus: 'flagged',
+      $or: [
+        { statusBeforeModeration: { $in: ['open', 'active'] } },
+        { statusBeforeModeration: { $exists: false } },
+      ],
+    }).select('_id statusBeforeModeration').lean();
+
+    if (moderatedJobs.length) {
+      const blockedReports = await JobReport.find({
+        job: { $in: moderatedJobs.map((job) => job._id) },
+        status: { $in: ['pending', 'under_review', 'valid'] },
+      }).select('job').lean();
+      const blockedJobIds = new Set(blockedReports.map((report) => String(report.job)));
+      const restorableJobs = moderatedJobs.filter((job) => !blockedJobIds.has(String(job._id)));
+
+      if (restorableJobs.length) {
+        await Job.bulkWrite(restorableJobs.map((job) => ({
+          updateOne: {
+            filter: { _id: job._id },
+            update: {
+              status: job.statusBeforeModeration || 'open',
+              moderationStatus: 'clear',
+              $unset: { statusBeforeModeration: 1 },
+            },
+          },
+        })));
+      }
+    }
 
     await logAdminAction({
       adminId: req.admin.id,

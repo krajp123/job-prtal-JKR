@@ -564,9 +564,23 @@ body {
 
 .portal-card {
     border: 1px solid var(--portal-border);
-    border-radius: 16px;
+    border-radius: 12px;
     background: var(--portal-ivory);
     box-shadow: 0 18px 36px -28px rgba(29, 24, 26, 0.34);
+}
+
+.recruiter-page {
+    font-size: 0.92rem;
+}
+
+.recruiter-page > main,
+.recruiter-page > div.mx-auto {
+    padding-top: 1.25rem;
+    padding-bottom: 1.25rem;
+}
+
+.recruiter-page h1 {
+    font-size: clamp(1.45rem, 2.5vw, 1.85rem);
 }
 
 .portal-primary-action,
@@ -609,12 +623,12 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    gap: 1.5rem;
+    gap: 1rem;
     overflow: hidden;
-    margin-bottom: 1rem;
-    padding: clamp(1.5rem, 4vw, 2.25rem);
+    margin-bottom: 0.75rem;
+    padding: clamp(1.15rem, 3vw, 1.6rem);
     border: 1px solid #1d181a;
-    border-radius: 18px;
+    border-radius: 12px;
     background: linear-gradient(135deg, #1d181a 0%, #3a3034 56%, #6e5424 135%);
     color: #fff;
     box-shadow: 0 24px 48px -30px rgba(29, 24, 26, 0.74);
@@ -659,9 +673,9 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    margin: 0 0 0.75rem;
+    margin: 0 0 0.5rem;
     color: #f7c56b;
-    font-size: 0.7rem;
+    font-size: 0.62rem;
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -669,23 +683,23 @@ body {
 
 .candidate-dashboard-hero h1 {
     margin: 0;
-    font-size: clamp(1.8rem, 4vw, 2.55rem);
+    font-size: clamp(1.45rem, 3vw, 2rem);
     line-height: 1.04;
 }
 
 .candidate-dashboard-hero-copy > p:not(.candidate-dashboard-eyebrow) {
     max-width: 33rem;
-    margin: 0.8rem 0 0;
+    margin: 0.55rem 0 0;
     color: rgba(255, 249, 245, 0.8);
-    font-size: 0.84rem;
-    line-height: 1.6;
+    font-size: 0.75rem;
+    line-height: 1.45;
 }
 
 .candidate-dashboard-hero-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.65rem;
-    margin-top: 1.25rem;
+    gap: 0.5rem;
+    margin-top: 0.9rem;
 }
 
 .candidate-dashboard-hero-primary,
@@ -694,8 +708,8 @@ body {
     align-items: center;
     gap: 0.45rem;
     border-radius: 9px;
-    padding: 0.68rem 0.85rem;
-    font-size: 0.76rem;
+    padding: 0.52rem 0.7rem;
+    font-size: 0.68rem;
     font-weight: 800;
     transition: transform 180ms ease, background-color 180ms ease;
 }
@@ -735,8 +749,8 @@ body {
     align-items: center;
     gap: 0.3rem;
     border-radius: 999px;
-    padding: 0.4rem 0.6rem;
-    font-size: 0.68rem;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.6rem;
     font-weight: 800;
 }
 
@@ -757,18 +771,18 @@ body {
 .candidate-dashboard-metrics {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.7rem;
-    margin-bottom: 1.5rem;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
 }
 
 .candidate-dashboard-metric {
     display: flex;
     align-items: flex-start;
-    gap: 0.65rem;
+    gap: 0.5rem;
     min-width: 0;
-    padding: 0.9rem;
+    padding: 0.7rem;
     border: 1px solid #ebc2ae;
-    border-radius: 12px;
+    border-radius: 10px;
     background: #fffdfb;
     box-shadow: 0 14px 28px -24px rgba(29, 24, 26, 0.34);
 }
@@ -778,9 +792,9 @@ body {
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    width: 2rem;
+    width: 1.7rem;
     aspect-ratio: 1;
-    border-radius: 8px;
+    border-radius: 7px;
     background: #fff5d9;
     color: #9a671a;
 }
@@ -803,15 +817,15 @@ body {
 
 .candidate-dashboard-metric-value {
     color: #1d181a;
-    font-size: 1.12rem;
+    font-size: 1rem;
     font-weight: 800;
     line-height: 1;
 }
 
 .candidate-dashboard-metric-label {
-    margin-top: 0.24rem;
+    margin-top: 0.18rem;
     color: #54263f;
-    font-size: 0.68rem;
+    font-size: 0.62rem;
     font-weight: 800;
 }
 
@@ -825,7 +839,7 @@ body {
 
 .candidate-dashboard-content-card {
     border: 1px solid #ebc2ae;
-    border-radius: 16px;
+    border-radius: 12px;
     background: #fffdfb;
     box-shadow: 0 18px 36px -28px rgba(29, 24, 26, 0.34);
 }
@@ -836,7 +850,7 @@ body {
 
 .candidate-dashboard-item-card {
     border: 1px solid #ebc2ae;
-    border-radius: 12px;
+    border-radius: 9px;
     background: #fff9f5;
     box-shadow: 0 12px 24px -22px rgba(29, 24, 26, 0.32);
 }

@@ -279,7 +279,9 @@ exports.login = async (req, res) => {
   try {
     const { uniqueId, password } = req.body;
 
-    const candidate = await Candidate.findOne({ uniqueId });
+    const candidate = await Candidate.findOne({
+      $or: [{ uniqueId }, { email: String(uniqueId || '').toLowerCase() }],
+    });
     if (!candidate) {
       return res.status(401).json({ error: 'Invalid unique ID or password' });
     }

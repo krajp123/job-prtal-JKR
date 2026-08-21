@@ -14,7 +14,7 @@ import CandidateProfile from './pages/candidate/Profile';
 import CandidateJobSearch from './pages/candidate/JobSearch';
 import CandidateJobDetail from './pages/candidate/JobDetail';
 import CandidateDashboard from './pages/candidate/Dashboard';
-import CandidateMessages from './pages/candidate/Messages';
+import CandidateMessages from './pages/candidate/CandidateMessage';
 import CandidateResumeMatch from './pages/candidate/ResumeMatch';
 import RecommendedJobs from './pages/candidate/RecommendedJobs';
 import AppliedJobs from './pages/candidate/AppliedJobs';
@@ -31,6 +31,7 @@ import RecruiterDashboard from './pages/recruiter/Dashboard';
 import RecruiterJobs from './pages/recruiter/Jobs';
 import RecruiterResumeDownloadsPage from './pages/recruiter/ResumeDownloadsPage';
 import RecruiterWallet from './pages/recruiter/Wallet';
+import RecruiterMessages from './pages/recruiter/RecruiterMessage';
 
 // NOTE: There is no "/admin" route anywhere in this app, and no admin login
 // link in the UI. The admin panel is a completely separate app (admin-panel/)
@@ -159,6 +160,10 @@ function AppRoutes() {
         <Route
           path="/recruiter/applicants"
           element={<ProtectedRoute role="recruiter"><RecruiterApplicants /></ProtectedRoute>}
+        />
+        <Route
+          path="/recruiter/messages"
+          element={<ProtectedRoute role="recruiter"><RecruiterMessages /></ProtectedRoute>}
         />
         <Route
           path="/recruiter/company-profile"

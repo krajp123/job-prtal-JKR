@@ -7,6 +7,7 @@ const adminSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    phone: { type: String, trim: true, maxlength: 30, default: '' },
     profilePictureUrl: { type: String },
     passwordHash: { type: String, required: true },
 

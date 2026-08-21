@@ -21,6 +21,7 @@ import ManagePayments from './pages/ManagePayments';
 import BadgeApprovals from './pages/BadgeApprovals';
 import Disputes from './pages/Disputes';
 import ReopenRequests from './pages/ReopenRequests';
+import JobReports from './pages/JobReports';
 import AdminManagement from './pages/AdminManagement';
 import AdminProfile from './pages/AdminProfile';
 
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="jobs" element={<Jobs />} />
             <Route path="applications" element={<Applications />} />
             <Route path="reopen-requests" element={<ReopenRequests />} />
+            <Route path="job-reports" element={<JobReports />} />
             <Route path="wallet-payments" element={<WalletPayments />} />
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings />} />

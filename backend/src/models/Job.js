@@ -3,6 +3,9 @@ const mongoose = require('mongoose');
 const jobSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
+    role: { type: String, trim: true },
+    category: { type: String, trim: true },
+    industry: { type: String, trim: true },
     description: { type: String, required: true },
     // Rich HTML per section (e.g. "About the company", "Roles & responsibilities"),
     // written by PostJob.jsx's RichTextField editor. `description` above stays as a
@@ -20,6 +23,9 @@ const jobSchema = new mongoose.Schema(
     // PostJob.jsx's publish/save-draft flow — all four are accepted so neither
     // path throws a validation error.
     status: { type: String, enum: ['open', 'closed', 'active', 'draft'], default: 'open' },
+    statusBeforeModeration: { type: String, enum: ['open', 'active', 'closed', 'draft'] },
+    moderationStatus: { type: String, enum: ['clear', 'flagged', 'reviewed'], default: 'clear' },
+    moderationMatches: [{ type: String }],
   },
   { timestamps: true }
 );
